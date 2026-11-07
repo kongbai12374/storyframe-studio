@@ -1,0 +1,9 @@
+[Unit]
+Description=Renew drama IP TLS certificate
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=oneshot
+ExecStart=/opt/drama-certbot/bin/certbot renew --cert-name drama-ip --quiet --deploy-hook "/usr/sbin/nginx -t && /bin/systemctl reload nginx"
+MemoryMax=256M
+CPUQuota=25%

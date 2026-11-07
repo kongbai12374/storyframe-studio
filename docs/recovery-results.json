@@ -1,0 +1,7 @@
+{
+  "worker_kill_recovery": "passed",
+  "job_id": 5,
+  "status": "interrupted",
+  "temporary_files_cleaned": true,
+  "automatic_paid_retry": false
+}

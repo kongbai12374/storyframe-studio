@@ -1,0 +1,10 @@
+.venv
+.env
+runtime
+metrics
+frontend
+.git
+**/__pycache__
+**/.pytest_cache
+**/tests
+feasibility

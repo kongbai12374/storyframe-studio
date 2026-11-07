@@ -1,0 +1,36 @@
+# Local configuration and credentials
+.env
+.env.*
+!.env.example
+private/
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+# Runtime and generated files
+.venv/
+venv/
+runtime/
+metrics/
+data/
+*.sqlite3
+*.sqlite3-*
+*.db
+node_modules/
+dist/
+**/__pycache__/
+**/.pytest_cache/
+*.py[cod]
+*.log
+*.tsbuildinfo
+*.tar.gz
+maintenance-backups/
+.coverage
+htmlcov/
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

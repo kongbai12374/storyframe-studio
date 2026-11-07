@@ -1,0 +1,40 @@
+{
+  "canvas_id": 11,
+  "final_job_id": 23,
+  "status": "succeeded",
+  "images": {
+    "source": "built-in ImageGen, imported as material nodes",
+    "asset_ids": [
+      6,
+      7
+    ],
+    "autodl_image_api_succeeded": false
+  },
+  "media": {
+    "duration_seconds": 10,
+    "width": 1344,
+    "height": 768,
+    "fps": 24,
+    "video_codec": "h264",
+    "audio_codec": "aac",
+    "non_silent_audio": true
+  },
+  "browser": {
+    "played_to_end": true,
+    "duration": 10,
+    "readyState": 4,
+    "media_error": null,
+    "image_thumbnails_loaded": true
+  },
+  "budget": {
+    "limit_yuan": "3",
+    "conservative_reserved_yuan": "2.70",
+    "actual_vendor_bill_verified": false
+  },
+  "tests": {
+    "backend_full_passed": 88,
+    "canvas_focused_after_link_fix_passed": 11,
+    "frontend_passed": 8,
+    "production_build": true
+  }
+}

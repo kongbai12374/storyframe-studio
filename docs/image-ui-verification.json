@@ -1,0 +1,11 @@
+{
+  "image_submit": true,
+  "image_preview": true,
+  "multi_image_order": true,
+  "bulk_delete_terminal_only": true,
+  "image_provider_preset": true,
+  "all_list_deletion_controls": true,
+  "mobile_no_overflow": true,
+  "paid_requests": 0,
+  "errors": []
+}

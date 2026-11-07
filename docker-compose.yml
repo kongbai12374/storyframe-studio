@@ -1,0 +1,48 @@
+name: drama-studio
+x-common: &common
+  image: drama-studio:local
+  build: .
+  env_file: .env
+  environment:
+    DATA_DIR: /data
+    HOST_METRICS: /metrics/host-metrics.json
+    ALLOWED_HOSTS: localhost,127.0.0.1,studio.example.com
+    CSRF_TRUSTED_ORIGINS: http://127.0.0.1:8010,http://localhost:8010,https://studio.example.com
+  volumes:
+    - ./runtime:/data
+    - ./metrics:/metrics:ro
+  read_only: true
+  tmpfs:
+    - /tmp:size=32m
+  restart: unless-stopped
+  init: true
+  stop_grace_period: 90s
+  logging:
+    driver: json-file
+    options:
+      max-size: 5m
+      max-file: '2'
+services:
+  web:
+    <<: *common
+    ports:
+      - 127.0.0.1:8011:8000
+    mem_limit: 256m
+    cpus: 0.5
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request;urllib.request.urlopen('http://127.0.0.1:8000/health/',timeout=4)"]
+      interval: 15s
+      timeout: 5s
+      start_period: 25s
+      retries: 3
+  worker:
+    <<: *common
+    command: [python, manage.py, worker]
+    mem_limit: 512m
+    cpus: 1.0
+    healthcheck:
+      test: [CMD, python, -c, "import os;os.environ.setdefault('DJANGO_SETTINGS_MODULE','config.settings');import django;django.setup();from core.models import WorkerHeartbeat;from django.utils import timezone;x=WorkerHeartbeat.objects.filter(name='main').first();assert x and (timezone.now()-x.updated_at).total_seconds()<20"]
+      interval: 15s
+      timeout: 5s
+      start_period: 25s
+      retries: 3

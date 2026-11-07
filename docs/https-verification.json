@@ -1,0 +1,10 @@
+{
+  "public_https": true,
+  "certificate_trusted": true,
+  "entry_auth": true,
+  "platform_login": true,
+  "mobile": true,
+  "csrf_cookie_secure": true,
+  "session_cookie_secure": true,
+  "errors": []
+}

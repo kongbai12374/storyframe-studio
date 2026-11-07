@@ -1,0 +1,36 @@
+{
+  "started_at": "2026-11-06 22:43:45",
+  "benchmarks": [
+    {
+      "duration": 15,
+      "wall_seconds": 16.65,
+      "host_min_available_mb": 758.19,
+      "worker_container_peak_bytes": 448835584,
+      "output_bytes": 217516,
+      "taskflow_healthy": true,
+      "job_id": 1
+    },
+    {
+      "duration": 60,
+      "wall_seconds": 58.2,
+      "host_min_available_mb": 735.71,
+      "worker_container_peak_bytes": 464367616,
+      "output_bytes": 866582,
+      "taskflow_healthy": true,
+      "job_id": 2
+    }
+  ],
+  "checks": [
+    "Running task cancellation reached cancelled",
+    "Canvas script -> compose -> result completed"
+  ],
+  "canvas_id": 1,
+  "canvas_job_id": 4,
+  "script_id": 5,
+  "asset_ids": [
+    1,
+    2,
+    3
+  ],
+  "finished_at": "2026-11-06 22:45:22"
+}

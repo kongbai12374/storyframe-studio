@@ -1,0 +1,33 @@
+{
+  "date": "2026-11-07",
+  "feature": "Reference audio upload for voice cloning from voiceover and AI narration panels",
+  "formats": [
+    "wav",
+    "mp3"
+  ],
+  "max_size_mb": 20,
+  "max_duration_seconds": 60,
+  "features": [
+    "upload and auto-associate",
+    "asset library selection",
+    "reference preview",
+    "TTS provider and narration text configuration in voiceover panel",
+    "create or reuse TTS node with legal connections",
+    "preserve previous audio assets and unrelated edges",
+    "disable execution while uploading",
+    "save only, no generation on upload"
+  ],
+  "validation": {
+    "frontend_tests_passed": 15,
+    "production_build": true,
+    "reference_upload_http": 201,
+    "generated_graph_save_http": 200,
+    "uploaded_asset_present_in_tts_snapshot": true,
+    "live_canvas_unchanged": true,
+    "new_generation_jobs": 0,
+    "paid_api_calls": 0,
+    "published_frontend_and_entry_assets_http": 200,
+    "backend_restarts": 0
+  },
+  "scope": "UI upload and API integration verified; voice-cloning output quality was not re-tested using paid supplier calls."
+}

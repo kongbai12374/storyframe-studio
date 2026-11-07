@@ -1,0 +1,22 @@
+{
+  "mode": "async",
+  "submit_path": "/api/v1/comfyui/comfyui_workflow/minimax_h3_b99_001",
+  "poll_path": "/api/v1/comfyui/comfyui_workflow/result/{{task_id}}",
+  "cancel_path": "",
+  "cancel_method": "POST",
+  "content_path": "",
+  "auth_header": "Authorization",
+  "auth_prefix": "",
+  "request_body": {
+    "prompt": "{{prompt}}",
+    "duration": "{{seconds}}",
+    "resolution": "736p横"
+  },
+  "task_id_field": "data.task_id",
+  "status_field": "data.status",
+  "progress_field": "",
+  "video_url_field": "data.results.0.url",
+  "success_values": ["SUCCESS", "completed"],
+  "failure_values": ["failed", "error", "cancelled", "canceled"],
+  "poll_seconds": 5
+}

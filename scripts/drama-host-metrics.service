@@ -1,0 +1,16 @@
+[Unit]
+Description=Drama studio read-only host resource probe
+After=network.target
+[Service]
+User=admin
+ExecStart=/usr/bin/python3 /opt/storyframe-studio/scripts/host-metrics.py
+Restart=always
+RestartSec=3
+MemoryMax=32M
+CPUQuota=5%
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/storyframe-studio/metrics
+ProtectHome=read-only
+[Install]
+WantedBy=multi-user.target

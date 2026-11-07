@@ -1,0 +1,39 @@
+{
+  "date": "2026-11-07",
+  "issue": "Canvas 11 reported illegal or duplicate edge after importing female narration",
+  "root_causes": [
+    "TTS node converted to audio asset while story-to-narration edge remained",
+    "Audio-to-voiceover connection missing from ALLOWED"
+  ],
+  "fixes": [
+    "Removed only story-narration edge on canvas 11",
+    "Allowed audio assets as voiceover inputs",
+    "Added graph validation to one-off media import scripts before saving canvas"
+  ],
+  "validation": {
+    "backend_passed": 91,
+    "initial_full_run": {
+      "passed": 90,
+      "fixture_unmounted": 1
+    },
+    "fixture_rerun_passed": 1,
+    "canvas_read_save_read_http": [
+      200,
+      200,
+      200
+    ],
+    "canvas_execution_plan_validated_without_submission": true,
+    "canvas_revision": 50,
+    "latest_job_id": 25,
+    "historical_downloads_preserved": [
+      23,
+      24,
+      25
+    ],
+    "web_healthy": true,
+    "worker_healthy": true,
+    "taskflow_preserved": true,
+    "paid_api_calls": 0,
+    "browser_check": "Stopped: computer-use tool could not determine browser URL; no browser verification claimed"
+  }
+}
