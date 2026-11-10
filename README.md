@@ -59,6 +59,8 @@ cd ..
 
 `studio.example.com` 与 `/opt/storyframe-studio` 均为部署示例，使用前请按自己的环境调整。`PUBLIC_ORIGIN` 须配置为自己的 HTTPS 入口，供应商才能访问经过签名的参考素材。
 
+公网入口可直接打开平台登录页，不启用额外的浏览器 HTTP Basic 密码验证；业务 API、管理后台和私有素材继续由平台登录与对象权限保护。详见[公网 HTTPS 配置](docs/public-https-guide.md)。
+
 本地开发步骤见[开发指南](docs/development-guide.md)。
 
 ## 验证与能力边界
