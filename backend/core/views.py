@@ -148,7 +148,7 @@ def page(query, request, serializer):
         n = max(1, min(int(request.query_params.get("page", 1)), 100000))
         limit = max(1, min(int(request.query_params.get("limit", 20)), 100))
     except (ValueError, TypeError):
-        raise ValidationError("分页参数无效")
+        raise ValidationError({"detail": "分页参数无效"})
     return Response(
         {
             "results": serializer(query[(n - 1) * limit : n * limit], many=True).data,
@@ -400,7 +400,7 @@ def provider_test(request, ident):
     try:
         public_target(obj.base_url)
     except GatewayError:
-        raise ValidationError("服务地址无法解析或不符合公网策略")
+        raise ValidationError({"detail": "服务地址无法解析或不符合公网策略"})
     return Response(
         {
             "detail": "地址解析与密钥解密检查通过；此检查不发送付费请求，不代表供应商鉴权或模型调用成功",
@@ -462,14 +462,14 @@ def canvas_snapshot(obj, user, selected=None):
     nodes = {n["id"]: n for n in doc["nodes"]}
     if selected:
         if not isinstance(selected, list) or any(n not in nodes for n in selected):
-            raise ValidationError("选中的节点无效")
+            raise ValidationError({"detail": "选中的节点无效"})
         wanted = set(selected)
         for n in reversed(order):
             if n in wanted:
                 wanted.update(e["source"] for e in doc["edges"] if e["target"] == n)
         order = [n for n in order if n in wanted]
     if sum(nodes[n]["data"]["kind"] in ["compose", "video_api"] for n in order) > 1:
-        raise ValidationError("轻量版每次流程只允许一个视频合成节点，请分别执行")
+        raise ValidationError({"detail": "轻量版每次流程只允许一个视频合成节点，请分别执行"})
     entities = {}
     video_providers = {}
     for ident in order:
@@ -503,7 +503,7 @@ def canvas_snapshot(obj, user, selected=None):
         in ["compose", "llm", "tts", "video_api", "image_api", "voiceover"]
         for n in order
     ):
-        raise ValidationError("至少添加一个合成、AI剧本或TTS执行节点")
+        raise ValidationError({"detail": "至少添加一个合成、AI剧本或TTS执行节点"})
     return {
         "project_id": obj.id,
         "revision": obj.revision,
@@ -534,12 +534,12 @@ def canvas_run(request, ident):
 
             p = provider_for(request.user, "llm")
             if p.base_url != "https://api.deepseek.com" or p.model != "deepseek-flash":
-                raise ValidationError("预算内AI剧本执行仅支持已核价的DeepSeek Flash")
+                raise ValidationError({"detail": "预算内AI剧本执行仅支持已核价的DeepSeek Flash"})
         snapshot["budget"] = validate_budget(
             snapshot, request.data.get("budget_limit_yuan")
         )
     if snapshot.get("video_providers") and request.data.get("confirm_paid") is not True:
-        raise ValidationError("执行视频API可能产生费用，请明确确认")
+        raise ValidationError({"detail": "执行视频API可能产生费用，请明确确认"})
     execution_key = request.data.get("idempotency_key")
     if snapshot.get("budget", {}).get("limit_yuan") is not None:
         execution_key = (
@@ -565,7 +565,7 @@ def jobs(request):
         }
     elif kind in ["video_api", "image_api"]:
         if request.data.get("confirm_paid") is not True:
-            raise ValidationError("提交生成API可能产生费用，请明确确认")
+            raise ValidationError({"detail": "提交生成API可能产生费用，请明确确认"})
         snapshot = (
             prepare_image_snapshot if kind == "image_api" else prepare_snapshot
         )(request.user, request.data)
@@ -573,14 +573,14 @@ def jobs(request):
         script = owned(Script, request.data.get("script_id"), request.user)
         scenes = scenes_validate(script.scenes, request.user)
         if any(not s["image_id"] for s in scenes):
-            raise ValidationError("每个分镜都需要选择图片")
+            raise ValidationError({"detail": "每个分镜都需要选择图片"})
         if any(
             s.get("audio_id")
             and owned(Asset, s["audio_id"], request.user).metadata.get("duration", 0)
             > s["duration"] + 0.15
             for s in scenes
         ):
-            raise ValidationError("音频超过对应分镜时长")
+            raise ValidationError({"detail": "音频超过对应分镜时长"})
         snapshot = {
             "script_id": script.id,
             "revision": script.revision,
@@ -589,7 +589,7 @@ def jobs(request):
             "use_tts": request.data.get("use_tts") is True,
         }
     else:
-        raise ValidationError("任务类型无效")
+        raise ValidationError({"detail": "任务类型无效"})
     job = enqueue(request.user, kind, snapshot, request.data.get("idempotency_key"))
     return Response(JobSerializer(job).data, status=202)
 
@@ -652,11 +652,11 @@ def job_cancel(request, ident):
 def job_retry(request, ident):
     obj = owned(Job, ident, request.user)
     if obj.status not in ["failed", "interrupted", "cancelled"]:
-        raise ValidationError("只有失败、中断或取消任务可重试")
+        raise ValidationError({"detail": "只有失败、中断或取消任务可重试"})
     if (obj.kind != "compose" or obj.snapshot.get("use_tts")) and not request.data.get(
         "confirm_paid"
     ):
-        raise ValidationError("该任务可能产生付费调用，请核查后显式确认重试")
+        raise ValidationError({"detail": "该任务可能产生付费调用，请核查后显式确认重试"})
     snapshot = copy.deepcopy(obj.snapshot)
     if (
         obj.kind in ["video_api", "image_api"]
@@ -682,7 +682,7 @@ def job_retry(request, ident):
             snapshot["resume_remote_state"] = copy.deepcopy(obj.remote_state)
         elif obj.remote_state.get("submission_state") in ["sending", "accepted"]:
             raise ValidationError(
-                "原提交结果未知，请先核查供应商；重新生成需显式new_generation确认"
+                {"detail": "原提交结果未知，请先核查供应商；重新生成需显式new_generation确认"}
             )
     return Response(
         JobSerializer(
