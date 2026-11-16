@@ -77,6 +77,9 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
         <p className="eyebrow">WELCOME TO YOUR STUDIO</p>
         <h2>进入创作工作室</h2>
         <p className="muted">使用管理员为你创建的账号登录。</p>
+        <p className="muted small">
+          公开演示：<code>demo</code> / <code>mirror2026</code>（已预置画布与成片，不含生成额度）
+        </p>
         <label>
           账号
           <input
