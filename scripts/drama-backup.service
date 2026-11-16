@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily consistent backup of Storyframe Studio (stop-service snapshot + verify + rotate)
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/admin/drama-platform
+ExecStart=/bin/bash /home/admin/drama-platform/scripts/backup-daily.sh
+StandardOutput=append:/var/log/drama-backup.log
+StandardError=append:/var/log/drama-backup.log
+TimeoutStartSec=900

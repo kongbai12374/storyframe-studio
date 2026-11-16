@@ -83,3 +83,35 @@ cd /home/admin/drama-platform && sudo docker compose up -d web worker
 - **登录限流**：未做无损验证（担心按 IP 限流把自己锁住），建议换一台机器连续输错 5 次确认是否 429。
 - **自动离机备份**：`scripts/backup.sh` 需要确认是否已进 cron，且备份应落到另一台机器或对象存储。
 - **HTTP/3 / OCSP stapling**：需要域名与更完整的证书链配置，当前为 IP 证书（Let's Encrypt shortlived profile）。
+
+## 六、演示账号（面向招聘方）
+
+公网可访问的只读体验账号，凭据直接写在登录页：
+
+- 账号 `demo` / 密码 `mirror2026`
+- 预置内容：1 个画布（「3 元全流程 · 白发红瞳人物短片」，8 节点，revision 87）、2 个剧本、5 个素材、2 条已成功任务（含可直接下载的成片）
+- 额度 300MB / API 次数 20；**没有配置任何供应商**，因此不具备生成能力，不会产生费用
+- 数据是 admin 工作区的独立副本，两端互不影响
+
+重建方式（先在 Django 后台删掉 demo 用户，会级联清空其数据）：
+
+```bash
+sudo docker compose run --rm --no-deps -T \
+  -v $PWD/scripts/clone-demo-user.py:/app/clone_demo.py:ro \
+  --entrypoint python web /app/clone_demo.py --commit
+```
+
+## 七、备份
+
+- `drama-backup.timer`：每日 03:40（随机延迟 5 分钟，`Persistent=true`）执行 `scripts/backup-daily.sh`
+- 内容：停服一致快照 `runtime.tar.gz`（含 SQLite 与媒体）+ `manifest.sha256` + `.env`（恢复必需的加密密钥）+ 两份 nginx 站点配置
+- 保留 7 份；日志 `/var/log/drama-backup.log`；**检测到活动任务时自动跳过**，避免打断生成
+- 校验：备份后立即 `sha256sum -c` + `tar -tzf` 可读性检查
+- 离线副本：Windows 计划任务「镜序备份拉取」每日 12:30 把最新一份拉回本机（保留 3 份，同样校验摘要）
+
+手动触发一次：
+
+```bash
+sudo systemctl start drama-backup.service
+systemctl status drama-backup.service
+```
