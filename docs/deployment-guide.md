@@ -34,6 +34,8 @@ Web 和 Worker 使用各自的内存与 CPU 限制；运行镜像只读，仅 `r
 
 `sh scripts/backup.sh /absolute/new-backup-directory` 会暂停本项目服务，使数据库与素材处于同一备份窗口，并在退出时重新启动。该操作会产生短暂停机，执行前确认没有生成任务。
 
-`sh scripts/restore.sh backup-directory new-isolated-target` 校验摘要、解包并检查 SQLite 完整性。恢复目标必须不存在，避免覆盖现有运行数据。
+启用每日备份前，按实际路径调整 `scripts/drama-backup.service` 与 `scripts/backup-daily.sh`，核对要归档的 Nginx 站点配置，再安装并启用 `drama-backup.timer`。发现活动任务时跳过该次备份，任务查询失败或返回无效计数时直接中止。运行归档、`.env` 和站点配置均完成校验后，才发布这份备份并轮换旧目录。脚本保留最近 7 份已完成备份。
+
+`sh scripts/restore.sh backup-directory new-isolated-target` 校验摘要、解包，在只读模式下检查 SQLite 完整性及业务表。使用尚未创建的独立目录作为恢复目标。
 
 恢复时必须使用原有加密密钥。项目没有自动离机备份、自动主备切换或固定 RPO/RTO 承诺。

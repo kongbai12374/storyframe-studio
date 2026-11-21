@@ -1,16 +1,16 @@
 # 文生图、多图视频与删除功能
 
-更新日期：2026-11-10。HTTPS 入口直接打开平台登录页，仅保留平台账号登录，不再要求额外入口密码。
+更新于 2026-11-21。HTTPS 入口使用平台账号登录。
 
 ## 配置图片 API
 
-1. 打开“个人与 API 配置”，添加服务，类型选择“图片生成 API”。
+1. 打开“账号与服务配置”，添加服务，类型选择“图片生成 API”。
 2. 填入自己的名称、模型、API Base URL 与 API Key。密钥只填专用输入框。
-3. 根据供应商文档调整接口映射。默认示例为同步 POST /images/generations、JSON 请求、Base64 图片返回。也可点击“载入图片 URL 示例”。示例只描述协议，不代表任意模型都支持该参数。
+3. 根据供应商文档调整接口映射。图片 Base64 示例使用 Gemini 风格的 JSON 正文，通过 `candidates` 提取内嵌图片。Happy Pet 图片模板使用 `/images/generations`，通过 `data` 提取 URL。
 4. Base URL 和提交路径会拼接，例如 https://api.example.com/v1 加 /images/generations。不要把完整生成路径重复填进 Base URL。
 5. “检查配置”只检查地址和密钥可读取，不执行付费生成。
 
-图片默认映射的 request_body 为 model、prompt、size、n，分别使用 {{model}}、{{prompt}}、{{size}}、{{count}}。图片结果路径沿用现有通用适配器的 video_url_field 字段，默认 data；可以指向字符串或最多4个结果的数组。数组项可为字符串或含 url / b64_json 的对象。output_format 为 base64 或 url。若供应商只返回单张，可设置 data.0.url / data.0.b64_json，生成张数选1。
+请求模板按供应商接口配置。单个占位符可以写成 `{{model}}`、`{{prompt}}`、`{{size}}` 或 `{{count}}`。结果路径由 `video_url_field` 配置，可指向单个字符串、包含 `url` 或 `b64_json` 的数组，或 Gemini 风格的 `candidates`。按返回类型设置 `output_format` 为 `base64` 或 `url`。
 
 其他 JSON 接口可自定义同步/异步提交路径、任务ID字段、查询路径、状态字段及结果路径。异步接口用 mode=async，并按供应商文档设置 poll_path、task_id_field、status_field、success_values 等。文件上传、流式SSE、专有签名和仅支持平台上传文件ID的接口需要单独适配，当前不能直接套用 JSON 示例。
 
@@ -37,7 +37,7 @@ images_data_urls 和 images_base64 会变为真正的数组，不是拼接的文
 
 画布 API 视频节点可连接最多9个图片节点，按连线创建顺序收集。图片来源可以是上传素材，也可以是文生图结果。当前文生图通过独立页面执行，完成后在画布图片节点中选择素材。
 
-多选不会自动让纯文生视频模型支持多图。供应商必须有相应模型和映射；只接受外网URL、上传文件ID或multipart的多图接口需要对应上传适配，不能直接使用上述Base64数组。原 AutoDL H3 文生视频配置保持不变，没有自动切换成多图模型。
+选择支持多图的模型，并按接口映射 Base64 或公网链接。接受公网链接的工作流可使用 `{{images_urls}}` 数组，或依序使用 `{{image_url_0}}` 等编号占位符。独立视频页还可选择最多 3 段参考音频，由支持音频的模板读取。[视频参数与模板说明](video-api-guide.md)
 
 ## 删除与整理
 

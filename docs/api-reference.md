@@ -22,10 +22,10 @@
 |GET/POST|canvases/|分页/创建项目|
 |GET/PUT/DELETE|canvases/{id}/|读取/条件保存/删除|
 |POST|canvases/{id}/run/|提交完整或选中节点及其依赖|
-|GET/POST|jobs/|分页或提交compose/llm|
-|GET|jobs/{id}/|阶段/进度/结果/最近100条日志|
+|GET/POST|jobs/|分页或提交 `compose`、`llm`、`image_api`、`video_api`|
+|GET/DELETE|jobs/{id}/|查看阶段、进度与日志，或删除已结束且未被引用的任务|
 |POST|jobs/{id}/cancel/|取消|
-|POST|jobs/{id}/retry/|重试，可能付费时需要confirm_paid=true|
+|POST|jobs/{id}/retry/|重试或查询原任务，传入 `idempotency_key`|
 |GET|jobs/{id}/download/|预览；download=1下载|
 |GET|/health/|web和worker心跳健康|
 
@@ -50,6 +50,8 @@
 执行请求含revision和idempotency_key，可加selected节点ID数组。只存便签的画布不可执行；非法连线、循环、越权引用和密钥字段会被拒绝。首版每次流程限一个视频合成节点，多分支仍串行。
 
 
-## 文生图与删除更新（2026-11-07）
+## 外部生成和重试
 
-新增 POST /api/jobs/ kind=image_api（需confirm_paid）、图片类型供应商service=image、视频image_ids数组（最多9张）与 DELETE /api/jobs/{id}/（仅终态、引用保护、清理本地成片）。任务、素材、剧本和画布列表均支持批量删除。最新77项后端与8项前端通过，浏览器模拟验证通过。使用方式及协议限制见[文生图与删除说明](image-generation-guide.md)。未调用真实图片供应商。用户反馈现有视频生成已成功。
+- `kind=video_api` 接收 `provider_id`、`prompt`、`seconds`、`size`、`image_ids`、`audio_ids` 与 `idempotency_key`。独立接口接受 1–30 整数秒。最多 9 张不重复的参考图、3 段不重复的参考音频，素材必须属于当前用户。参考媒体按提交顺序映射。[视频 API 指南](video-api-guide.md)
+- `kind=image_api` 接收 `provider_id`、`prompt`、`size`、`count` 与 `idempotency_key`。`count` 为 1–4。生成结果进入素材库。[图片生成指南](image-generation-guide.md)
+- 生成和重试可直接提交，实际费用由供应商收取。失败、中断或取消的远程任务若已有供应商任务 ID，默认查询原任务。提交结果未知且缺少 ID 时，先到供应商侧核查。确定要发起新一轮生成时，使用 `new_generation: true` 及本次操作的幂等键。
