@@ -1,4 +1,6 @@
-# API参考
+# API 参考
+
+适用应用版本 `adbb539`。下表业务路径相对于 `/api/`，健康检查使用单独的 `/health/`。
 
 基础路径/api/，登录使用Django Session cookie。首次写请求先GET /api/csrf/取得csrfToken，再在X-CSRFToken头传入。所有JSON写请求必须为对象。文件上传使用multipart/form-data。未登录403，参数400，越权/不存在404，版本冲突409，过大413，限流429，数据库繁忙503。
 
@@ -15,7 +17,8 @@
 |GET|scripts/{id}/export/|Markdown下载|
 |GET/POST|assets/|分页筛选或上传file与tags|
 |GET/PATCH/DELETE|assets/{id}/|详情、修改tags、删除未引用素材|
-|GET|assets/{id}/file/|鉴权流式读取；thumbnail=1读取缩略图|
+|GET|assets/{id}/file/|鉴权流式读取，`thumbnail=1` 读取缩略图|
+|GET|asset-links/{token}/{filename}|供供应商按有效短期签名读取指定素材|
 |GET/POST|providers/|脱敏列表/保存配置|
 |PUT/DELETE|providers/{id}/|更新/删除|
 |POST|providers/{id}/test/|URL解析及密钥可读检查，不发送付费请求|
@@ -23,7 +26,7 @@
 |GET/PUT/DELETE|canvases/{id}/|读取/条件保存/删除|
 |POST|canvases/{id}/run/|提交完整或选中节点及其依赖|
 |GET/POST|jobs/|分页或提交 `compose`、`llm`、`image_api`、`video_api`|
-|GET/DELETE|jobs/{id}/|查看阶段、进度与日志，或删除已结束且未被引用的任务|
+|GET/DELETE|jobs/{id}/|读取状态、阶段、进度、结果地址、时间戳和最近日志，或删除已结束且未被引用的任务|
 |POST|jobs/{id}/cancel/|取消|
 |POST|jobs/{id}/retry/|重试或查询原任务，传入 `idempotency_key`|
 |GET|jobs/{id}/download/|预览；download=1下载|
@@ -47,11 +50,12 @@
 ```json
 {"name":"故事流程","revision":1,"document":{"nodes":[{"id":"note-1","type":"studio","position":{"x":0,"y":0},"data":{"kind":"note","label":"一个想法","text":"从这里开始"}}],"edges":[],"viewport":{"x":0,"y":0,"zoom":1}}}
 ```
-执行请求含revision和idempotency_key，可加selected节点ID数组。只存便签的画布不可执行；非法连线、循环、越权引用和密钥字段会被拒绝。首版每次流程限一个视频合成节点，多分支仍串行。
+执行请求含 `revision` 和 `idempotency_key`，可加 `selected` 节点 ID 数组。选中节点的上游依赖会加入执行计划。只存便签的画布不可执行。非法连线、循环、越权引用和密钥字段会被拒绝。每次流程最多一个本地合成或 API 视频节点，各分支串行。
 
 
 ## 外部生成和重试
 
+- 独立视频任务中的参考音频属于供应商输入。画布上的配音合成属于后期混音。[画布指南](canvas-flow-guide.md)
 - `kind=video_api` 接收 `provider_id`、`prompt`、`seconds`、`size`、`image_ids`、`audio_ids` 与 `idempotency_key`。独立接口接受 1–30 整数秒。最多 9 张不重复的参考图、3 段不重复的参考音频，素材必须属于当前用户。参考媒体按提交顺序映射。[视频 API 指南](video-api-guide.md)
 - `kind=image_api` 接收 `provider_id`、`prompt`、`size`、`count` 与 `idempotency_key`。`count` 为 1–4。生成结果进入素材库。[图片生成指南](image-generation-guide.md)
 - 生成和重试可直接提交，实际费用由供应商收取。失败、中断或取消的远程任务若已有供应商任务 ID，默认查询原任务。提交结果未知且缺少 ID 时，先到供应商侧核查。确定要发起新一轮生成时，使用 `new_generation: true` 及本次操作的幂等键。

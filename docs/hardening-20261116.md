@@ -1,5 +1,7 @@
 # 2026-11-16 线上加固记录
 
+> 以下按 2026-11-16 当时的站点与镜像记录。2026-11-21 已核对当前入口，公网 `/admin/` 跳转到后台登录，`/health/` 对公网返回 `403`，主机回环健康检查通过。当前配置与验证见[公网 HTTPS 配置](public-https-guide.md)和[测试与验收](test-report.md)。
+
 对公网部署（https://8.133.224.94/）做了一轮只读体检，随后实施的改动、验证方式与回滚方法记录在这里。
 
 ## 一、体检发现
@@ -62,7 +64,9 @@ GET /api/jobs/            -> 200 total=17
 
 测试套件：容器内 `pytest tests` 结果 `73 passed, 18 failed`，与改动前镜像 **完全一致**（失败项来自测试容器 `/tmp` 为 32MB tmpfs，触发 `core.queue.resource_check()` 的 5GB 磁盘下限，属环境约束，不是代码回归）。
 
-## 四、回滚
+## 四、当时的回滚命令
+
+这组命令对应 11 月 16 日加固前的快照。当前发布回退时使用该次上线的镜像和静态入口备份。[部署指南](deployment-guide.md)
 
 ```bash
 # nginx
@@ -77,7 +81,7 @@ cd /home/admin/drama-platform && sudo docker compose up -d web worker
 
 后端源码改动前的副本在 `/home/admin/drama-backup-<时间戳>/views.py`。
 
-## 五、未做 / 待办
+## 五、当时的未完成项
 
 - **自建修改密码页面**：前端只有 `auth/login`、`auth/logout`、`auth/me`，改密仍需进 Django 后台（现已不对公网开放，走 SSH 隧道）。
 - **登录限流**：未做无损验证（担心按 IP 限流把自己锁住），建议换一台机器连续输错 5 次确认是否 429。
@@ -86,9 +90,9 @@ cd /home/admin/drama-platform && sudo docker compose up -d web worker
 
 ## 六、演示账号（面向招聘方）
 
-公网可访问的只读体验账号，凭据直接写在登录页：
+公开演示账号作为普通创作者使用独立的数据副本，登录页提供体验入口。下面是当时的准备记录。
 
-- 账号 `demo` / 密码 `mirror2026`
+- 演示账号为 `demo`，登录信息以页面为准。
 - 预置内容：1 个画布（「3 元全流程 · 白发红瞳人物短片」，8 节点，revision 87）、2 个剧本、5 个素材、2 条已成功任务（含可直接下载的成片）
 - 额度 300MB / API 次数 20；**没有配置任何供应商**，因此不具备生成能力，不会产生费用
 - 数据是 admin 工作区的独立副本，两端互不影响
@@ -101,7 +105,9 @@ sudo docker compose run --rm --no-deps -T \
   --entrypoint python web /app/clone_demo.py --commit
 ```
 
-## 七、备份
+## 七、当时的备份安排
+
+2026-11-21 的备份脚本已补充活动任务查询校验、暂存校验与正式轮换，当前说明见[备份恢复](deployment-guide.md#备份恢复)。
 
 - `drama-backup.timer`：每日 03:40（随机延迟 5 分钟，`Persistent=true`）执行 `scripts/backup-daily.sh`
 - 内容：停服一致快照 `runtime.tar.gz`（含 SQLite 与媒体）+ `manifest.sha256` + `.env`（恢复必需的加密密钥）+ 两份 nginx 站点配置

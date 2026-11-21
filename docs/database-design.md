@@ -1,5 +1,7 @@
 # 数据库与迁移
 
+适用应用版本 `adbb539`。[模型定义](../backend/core/models.py)
+
 ```mermaid
 erDiagram
  User ||--|| Profile : quota
@@ -9,13 +11,31 @@ erDiagram
  User ||--o{ CanvasProject : edits
  User ||--o{ Job : submits
  Job ||--o{ JobLog : records
- Provider ||--o{ AIRequest : calls
+ Provider o|--o{ AIRequest : calls
 ```
 
-Profile：存储字节配额、剩余API调用数。Script：标题、梗概、风格、分镜JSON、revision。Asset：随机相对路径、原文件名、类型、哈希、大小、元信息、标签。Provider：服务类型、base URL、model、Fernet密文和脱敏后缀。
-CanvasProject：所有者、名称、schema_version、revision、文档JSON、更新时间。JSON含nodes/edges/viewport，服务端验证100节点/200边/512KiB上限及引用权限。
-Job：kind/status/stage/progress、不可变snapshot、result、错误类别、幂等键、lease_owner、心跳及各时间、尝试数。JobLog：任务消息和时间。AIRequest：供应商、服务、固定endpoint、submitted/succeeded/failed/unknown、HTTP状态和时间，不保存密钥或请求正文。PromptTemplate由管理员编辑；WorkerHeartbeat用于健康检查。
-约束：Asset(user,sha256)唯一；Job(user,idempotency_key)唯一；任务状态有索引。Django外键默认索引。所有用户侧操作必须经归属检查，不把顺序ID当作访问凭证。
-SQLite启用WAL、10秒busy timeout、IMMEDIATE事务。迁移仅由一次性步骤执行，0001创建基础模型，0002创建AIRequest。变更前备份，执行manage.py migrate；不要删除迁移文件重新生成生产数据库。
+| 模型 | 主要字段与职责 |
+|---|---|
+| `Profile` | 存储字节配额和剩余 AI 调用次数 |
+| `Script` / `Asset` | 剧本保存标题、梗概、风格、分镜 JSON 与版本号。素材保存文件与缩略图的相对路径、哈希、大小、类型和标签 |
+| `Provider` | LLM、TTS、视频、图片四类配置，保存 HTTPS 地址、模型、Fernet 密文、尾号和 `video_config` 映射 |
+| `CanvasProject` | 用户、名称、`schema_version`、`revision` 与 `nodes` / `edges` / `viewport`。上限为 100 节点、200 条连线、512 KiB |
+| `Job` / `JobLog` | 任务固定执行输入，保存结果、远端状态、阶段、进度、幂等键、执行租约和时间戳。任务日志记录阶段消息 |
+| `AIRequest` | 调用涉及的供应商、服务、接口、HTTP 状态和完成时间，记录调用状态 |
+| `PromptTemplate` / `WorkerHeartbeat` | 保存剧本风格提示词，记录 Worker 健康检查所需的心跳 |
 
-0003迁移新增Provider.video_config及video服务类型、Job.remote_state。任务ID和提交/查询/取消状态持久化，配置快照存于任务输入，不复制API Key。
+素材按 `(user, sha256)` 去重。任务按 `(user, idempotency_key)` 去重，`status` 有索引。查任务、素材和剧本时还要验证所属用户，业务 ID 只用于定位。
+
+`Job.snapshot` 存放提交时的画布、剧本版本、参考素材引用或供应商映射。`remote_state` 保存可用于恢复的远端任务 ID、提交结果与节点检查点。Key 仍存于供应商配置的加密字段，调用时按归属读取。
+
+## 迁移记录
+
+| 迁移 | 内容 |
+|---|---|
+| `0001` | 创建基础业务模型 |
+| `0002` | 增加 `AIRequest` 审计 |
+| `0003` | 增加供应商配置 JSON、视频服务与任务远端状态 |
+| `0004` | 更新供应商服务类型，包含图片 |
+| `0005`–`0006` | 同步管理后台中文模型和字段标签，包括素材类型 |
+
+SQLite 使用 WAL、10 秒等待和 IMMEDIATE 事务。修改模型后先生成和审查迁移，在隔离环境运行测试，备份后用一次性部署步骤执行生产迁移。`manage.py showmigrations core` 用于核对已应用版本，`manage.py migrate --check` 用于检查有无未应用迁移。[备份与恢复](deployment-guide.md#备份恢复)

@@ -1,5 +1,7 @@
 # AI 短剧生成智能体平台 — Codex 全流程开发提示词模板
 
+> 这是最初的完整需求模板，保留各 Phase 原文用于对照。当前实现与原始需求的差异见[轻量模板对照](docs/template-alignment.md)，实际部署见[部署指南](docs/deployment-guide.md)。
+
 > **用途**：将以下 Phase 0 ~ Phase 10 的提示词按顺序投喂给 Codex，引导其独立完成全流程开发。
 > **运行环境**：2 核 2G 服务器
 > **技术栈**：Python Django + React + TypeScript
