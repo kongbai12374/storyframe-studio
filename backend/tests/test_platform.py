@@ -369,6 +369,34 @@ def test_graph_100_nodes_limit(context):
         graph_validate(document([node(str(i), "note") for i in range(101)]), context[0])
 
 
+@pytest.mark.parametrize(
+    "size",
+    [
+        "1280x720",
+        "720x1280",
+        "480p横",
+        "480p竖",
+        "768p横",
+        "768p竖",
+        "1080p横",
+        "1080p竖",
+        "480p(1:1)",
+        "768p(1:1)",
+    ],
+)
+def test_graph_accepts_supported_video_api_sizes(context, size):
+    video = node("video", "video_api")
+    video["data"]["size"] = size
+    graph_validate(document([video]), context[0])
+
+
+def test_graph_rejects_unsupported_video_api_size(context):
+    video = node("video", "video_api")
+    video["data"]["size"] = "4k-unsupported"
+    with pytest.raises(ValidationError, match="API视频尺寸无效"):
+        graph_validate(document([video]), context[0])
+
+
 def test_snapshot_immutable(context):
     a, b, c = context
     s = Script.objects.create(user=a, title="snapshot", scenes=[scene()])
@@ -408,7 +436,7 @@ def test_cancel_process_group(context, tmp_path):
         assert fake.wait.called
 
 
-def test_retry_requires_paid_confirmation(context):
+def test_llm_retry_without_confirmation_is_idempotent(context):
     a, b, c = context
     j = Job.objects.create(
         user=a,
@@ -417,20 +445,13 @@ def test_retry_requires_paid_confirmation(context):
         idempotency_key="paid-test",
         snapshot={"synopsis": "x", "style": "甜宠"},
     )
-    assert (
-        body(
-            c, f"/api/jobs/{j.id}/retry/", {"idempotency_key": "retry-test"}
-        ).status_code
-        == 400
-    )
-    assert (
-        body(
-            c,
-            f"/api/jobs/{j.id}/retry/",
-            {"idempotency_key": "retry-test", "confirm_paid": True},
-        ).status_code
-        == 202
-    )
+    url = f"/api/jobs/{j.id}/retry/"
+    payload = {"idempotency_key": "retry-test"}
+    first = body(c, url, payload)
+    replay = body(c, url, {**payload, "confirm_paid": True})
+    assert first.status_code == replay.status_code == 202
+    assert first.json()["id"] == replay.json()["id"]
+    assert Job.objects.get(pk=first.json()["id"]).snapshot == j.snapshot
 
 
 def test_invalid_json_body_rejected(context):
@@ -448,7 +469,7 @@ def test_invalid_json_body_rejected(context):
     )
 
 
-def test_paid_tts_retry_requires_confirmation(context):
+def test_tts_retry_without_confirmation(context):
     a, b, c = context
     j = Job.objects.create(
         user=a,
@@ -461,7 +482,7 @@ def test_paid_tts_retry_requires_confirmation(context):
         body(
             c, f"/api/jobs/{j.id}/retry/", {"idempotency_key": "tts-retry-key"}
         ).status_code
-        == 400
+        == 202
     )
 
 

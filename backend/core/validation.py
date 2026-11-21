@@ -74,6 +74,7 @@ ALLOWED = {
     "result": set(),
     "note": set(),
 }
+VIDEO_API_SIZES = {"1280x720", "720x1280", "480p横", "480p竖", "768p横", "768p竖", "1080p横", "1080p竖", "480p(1:1)", "768p(1:1)"}
 
 
 def graph_validate(doc, user):
@@ -169,7 +170,7 @@ def graph_validate(doc, user):
                 type(data["seconds"]) is not int or not 1 <= data["seconds"] <= 60
             ):
                 raise ValidationError("API视频时长须为1–60整数秒")
-            if data.get("size", "1280x720") not in ["1280x720", "720x1280"]:
+            if data.get("size", "1280x720") not in VIDEO_API_SIZES:
                 raise ValidationError("API视频尺寸无效")
             if (
                 data.get("provider_id")

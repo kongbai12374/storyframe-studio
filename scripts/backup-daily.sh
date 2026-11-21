@@ -1,7 +1,8 @@
 #!/bin/bash
 # 每日一致备份：停服快照 + 校验 + 保留策略 + 关键配置副本
 # 由 drama-backup.timer 以 root 身份调用
-set -uo pipefail
+set -euo pipefail
+umask 077
 
 APP=/home/admin/drama-platform
 DEST=/home/admin/backups
@@ -16,10 +17,16 @@ chmod 700 "$DEST"
 cd "$APP" || exit 1
 
 # 有活动任务时跳过，避免把生成中的任务打断
-ACTIVE=$(docker compose exec -T web python manage.py shell -c \
-  "from core.models import Job; print(Job.objects.exclude(status__in=['succeeded','failed','cancelled','interrupted']).count())" \
-  2>/dev/null | tail -1)
-if [ "${ACTIVE:-0}" != "0" ]; then
+if ! ACTIVE=$(docker compose exec -T web python manage.py shell -c \
+  "from core.models import Job; print(Job.objects.exclude(status__in=['succeeded','failed','cancelled','interrupted']).count())" | tail -1); then
+    log "活动任务查询失败，本次备份已中止"
+    exit 1
+fi
+if [[ ! $ACTIVE =~ ^[0-9]+$ ]]; then
+    log "活动任务数无效，本次备份已中止"
+    exit 1
+fi
+if [[ $ACTIVE != 0 ]]; then
     log "存在 ${ACTIVE} 个活动任务，跳过本次备份"
     exit 0
 fi
@@ -29,30 +36,29 @@ if [ -e "$TARGET" ]; then
     exit 0
 fi
 
-sh scripts/backup.sh "$TARGET" || { log "备份失败"; exit 1; }
+# 完成归档与校验后再发布，失败时留下隐藏暂存目录供排查。
+STAGING=$(mktemp -d "$DEST/.pending-$TS-XXXXXX")
+SNAPSHOT="$STAGING/snapshot"
+sh scripts/backup.sh "$SNAPSHOT"
+install -m 600 "$APP/.env" "$SNAPSHOT/env.backup"
+for site in drama-public drama-http; do
+    install -m 600 "/etc/nginx/sites-available/$site" "$SNAPSHOT/$site"
+done
+(
+    cd "$SNAPSHOT"
+    sha256sum env.backup drama-public drama-http >> manifest.sha256
+    sha256sum -c manifest.sha256
+    tar -tzf runtime.tar.gz >/dev/null
+)
+chown -R admin:admin "$SNAPSHOT"
+mv -T "$SNAPSHOT" "$TARGET"
+rmdir "$STAGING"
 
-# 校验
-if ! ( cd "$TARGET" && sha256sum -c manifest.sha256 ); then
-    log "校验失败：$TARGET"
-    exit 1
-fi
-if ! tar -tzf "$TARGET/runtime.tar.gz" > /dev/null 2>&1; then
-    log "压缩包不可读：$TARGET"
-    exit 1
-fi
-
-# 恢复时需要：加密密钥在 .env 里，nginx 站点配置也一样要留
-cp -a "$APP/.env" "$TARGET/env.backup" 2>/dev/null && chmod 600 "$TARGET/env.backup"
-cp -a /etc/nginx/sites-available/drama-public "$TARGET/" 2>/dev/null
-cp -a /etc/nginx/sites-available/drama-http "$TARGET/" 2>/dev/null
-chmod 600 "$TARGET"/*.conf 2>/dev/null
-
-# 归属给 admin，便于用普通账号拉取离线副本（目录仍 700，其他用户不可读）
-chown -R admin:admin "$TARGET"
-chmod 700 "$TARGET"
-
-# 保留最近 KEEP 份
-ls -1d "$DEST"/2* 2>/dev/null | sort | head -n -"$KEEP" | xargs -r rm -rf
+# 仅轮换按日期命名的备份目录。
+mapfile -t snapshots < <(find "$DEST" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | grep -Ex '[0-9]{8}-[0-9]{4}' | sort)
+for ((i=0; i<${#snapshots[@]}-KEEP; i++)); do
+    rm -rf -- "$DEST/${snapshots[i]}"
+done
 
 SIZE=$(du -sh "$TARGET" | cut -f1)
 COUNT=$(ls -1d "$DEST"/2* 2>/dev/null | wc -l)

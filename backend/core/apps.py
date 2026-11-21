@@ -9,6 +9,7 @@ def sqlite_setup(sender, connection, **kwargs):
 
 class CoreConfig(AppConfig):
     name = "core"
+    verbose_name = "内容与生成管理"
 
     def ready(self):
         connection_created.connect(sqlite_setup)

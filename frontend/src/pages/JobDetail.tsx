@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { api, Job, key, statuses } from "../api";
 import { usePoll } from "../hooks";
@@ -8,6 +8,28 @@ export default function JobDetail() {
     [error, setError] = useState("");
   const load = usePoll(() => api<Job>(`jobs/${id}/`), [id]);
   const j = load.data;
+  const [retrying, setRetrying] = useState(false);
+  const retryKeys = useRef(new Map<string, string>());
+
+  async function retry(newGeneration: boolean) {
+    if (retrying || !id) return;
+    const action = id + (newGeneration ? "/generate" : "/resume");
+    const requestKey = retryKeys.current.get(action) ?? key();
+    retryKeys.current.set(action, requestKey);
+    setError("");
+    setRetrying(true);
+    try {
+      const next = await api<Job>(`jobs/${id}/retry/`, "POST", {
+        idempotency_key: requestKey,
+        ...(newGeneration ? { new_generation: true } : {}),
+      });
+      location.href = "/jobs/" + next.id;
+    } catch (e) {
+      setError((e as Error).message);
+      setRetrying(false);
+    }
+  }
+
   return (
     <>
       <Link to="/jobs">← 任务中心</Link>
@@ -71,24 +93,8 @@ export default function JobDetail() {
                 ["failed", "interrupted", "cancelled"].includes(j.status) && (
                   <button
                     className="danger"
-                    onClick={async () => {
-                      if (
-                        !confirm(
-                          "重新生成将新建供应商任务，可能重复收费。请先核查原任务，确认仍要新生成？",
-                        )
-                      )
-                        return;
-                      try {
-                        const n = await api<Job>(`jobs/${id}/retry/`, "POST", {
-                          idempotency_key: key(),
-                          confirm_paid: true,
-                          new_generation: true,
-                        });
-                        location.href = "/jobs/" + n.id;
-                      } catch (e) {
-                        setError((e as Error).message);
-                      }
-                    }}
+                    disabled={retrying}
+                    onClick={() => retry(true)}
                   >
                     重新生成（可能再次计费）
                   </button>
@@ -109,24 +115,8 @@ export default function JobDetail() {
               )}
               {["failed", "interrupted", "cancelled"].includes(j.status) && (
                 <button
-                  onClick={async () => {
-                    if (
-                      j.may_charge &&
-                      !confirm(
-                        "请先核查供应商是否已扣费。重新执行可能再次产生费用，是否继续？",
-                      )
-                    )
-                      return;
-                    try {
-                      const next = await api<Job>(`jobs/${id}/retry/`, "POST", {
-                        idempotency_key: key(),
-                        confirm_paid: true,
-                      });
-                      location.href = "/jobs/" + next.id;
-                    } catch (e) {
-                      setError((e as Error).message);
-                    }
-                  }}
+                  disabled={retrying}
+                  onClick={() => retry(false)}
                 >
                   查询原任务 / 核查后重试
                 </button>

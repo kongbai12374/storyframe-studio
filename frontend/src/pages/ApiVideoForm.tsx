@@ -16,9 +16,9 @@ export default function ApiVideoForm() {
     [prompt, setPrompt] = useState(""),
     [provider, setProvider] = useState(""),
     [images, setImages] = useState<number[]>([]),
+    [audios, setAudios] = useState<number[]>([]),
     [seconds, setSeconds] = useState(5),
-    [size, setSize] = useState("1280x720"),
-    [paid, setPaid] = useState(false),
+    [size, setSize] = useState("768p竖"),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const nav = useNavigate(),
@@ -28,6 +28,7 @@ export default function ApiVideoForm() {
   const assets = useLoad(() =>
     api<Page<Asset>>("assets/?kind=image&limit=100"),
   );
+  const audioAssets = useLoad(() => api<Page<Asset>>("assets/?kind=audio&limit=100"));
   const choices =
     providers.data?.filter((p) => p.service === "video" && p.active) || [];
   function useScript(id: string) {
@@ -94,7 +95,7 @@ export default function ApiVideoForm() {
                     seconds,
                     size,
                     image_ids: images,
-                    confirm_paid: paid,
+                    audio_ids: audios,
                     idempotency_key: key(),
                   });
                   nav("/jobs/" + j.id);
@@ -151,7 +152,7 @@ export default function ApiVideoForm() {
                   <input
                     type="number"
                     min={1}
-                    max={60}
+                    max={30}
                     required
                     value={seconds}
                     onChange={(e) => setSeconds(Number(e.target.value))}
@@ -163,8 +164,14 @@ export default function ApiVideoForm() {
                     value={size}
                     onChange={(e) => setSize(e.target.value)}
                   >
-                    <option value="1280x720">横屏 1280×720</option>
-                    <option value="720x1280">竖屏 720×1280</option>
+                    <option value="480p竖">480p 竖屏</option>
+                    <option value="480p横">480p 横屏</option>
+                    <option value="768p竖">768p 竖屏</option>
+                    <option value="768p横">768p 横屏</option>
+                    <option value="1080p竖">1080p 竖屏</option>
+                    <option value="1080p横">1080p 横屏</option>
+                    <option value="480p(1:1)">480p 正方形</option>
+                    <option value="768p(1:1)">768p 正方形</option>
                   </select>
                 </label>
               </div>
@@ -235,21 +242,23 @@ export default function ApiVideoForm() {
                 </ol>
                 <Link to="/images">先生成参考图片 →</Link>
               </fieldset>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  required
-                  checked={paid}
-                  onChange={(e) => setPaid(e.target.checked)}
-                />
-                我确认将提示词及所选参考图发送给自己的供应商，并承担其API调用费用。
-              </label>
+              <fieldset className="reference-picker">
+                <legend>参考音频（可选，最多3段）</legend>
+                <div className="reference-grid">
+                  {audioAssets.data?.results.map((a) => (
+                    <label key={a.id} className={audios.includes(a.id) ? "reference-card chosen" : "reference-card"}>
+                      <span><input type="checkbox" checked={audios.includes(a.id)} disabled={!audios.includes(a.id) && audios.length >= 3} onChange={(e) => setAudios(e.target.checked ? [...audios, a.id] : audios.filter((id) => id !== a.id))} />{a.name}</span>
+                    </label>
+                  ))}
+                </div>
+                <Link to="/assets">管理音频素材 →</Link>
+              </fieldset>
               <p className="muted small">
                 系统不会自动重复提交付费生成请求。取消本地等待不保证供应商停止生成或退费；超时后可查询原任务。
               </p>
               <button
                 className="primary"
-                disabled={busy || !paid || !provider || !prompt.trim()}
+                disabled={busy || !provider || !prompt.trim()}
               >
                 {busy ? "提交中…" : "提交至我的视频 API →"}
               </button>

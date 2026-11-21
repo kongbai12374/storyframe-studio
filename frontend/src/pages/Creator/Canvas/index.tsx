@@ -123,7 +123,6 @@ export default function Canvas() {
     [listMode, setListMode] = useState(false),
     [job, setJob] = useState<Job | null>(null),
     [submitting, setSubmitting] = useState(false),
-    [budgetLimit, setBudgetLimit] = useState("3"),
     [uploadingAudio, setUploadingAudio] = useState(false);
   const current = useRef(doc),
     title = useRef(name),
@@ -341,15 +340,6 @@ export default function Canvas() {
       setError("当前流程尚未结束，请等待完成或先取消，避免重复收费");
       return;
     }
-    if (
-      doc.nodes.some((n) =>
-        ["video_api", "image_api", "tts", "llm"].includes(n.data.kind),
-      ) &&
-      !confirm(
-        "执行将调用图中配置的AI服务并可能收费。预算按已核对单价保守预留；已完成节点会保留。是否继续？",
-      )
-    )
-      return;
     setSubmitting(true);
     setError("");
     try {
@@ -359,12 +349,6 @@ export default function Canvas() {
       const j = await api<Job>(`canvases/${id}/run/`, "POST", {
         revision: revision.current,
         idempotency_key: key(),
-        confirm_paid: true,
-        ...(doc.nodes.some((n) =>
-          ["image_api", "voiceover"].includes(n.data.kind),
-        )
-          ? { budget_limit_yuan: Number(budgetLimit) }
-          : {}),
         ...(only && selected
           ? { selected: [selected] }
           : doc.nodes.some((n) => n.data.kind === "result")
@@ -576,7 +560,7 @@ export default function Canvas() {
         <div className="property-panel">
           {node ? (
             <>
-              <p className="eyebrow">NODE PROPERTIES</p>
+              <p className="eyebrow">节点设置</p>
               <h3>{kinds[node.data.kind].label}</h3>
               <label>
                 节点名称
@@ -674,7 +658,7 @@ export default function Canvas() {
                   <input
                     type="number"
                     min={1}
-                    max={60}
+                    max={30}
                     value={node.data.seconds || 10}
                     onChange={(e) =>
                       update({ seconds: Number(e.target.value) })
@@ -722,11 +706,17 @@ export default function Canvas() {
                   <label>
                     画面方向
                     <select
-                      value={node.data.size || "1280x720"}
+                      value={node.data.size || "768p竖"}
                       onChange={(e) => update({ size: e.target.value })}
                     >
-                      <option value="1280x720">横屏 1280×720</option>
-                      <option value="720x1280">竖屏 720×1280</option>
+                      <option value="480p竖">480p 竖屏</option>
+                      <option value="480p横">480p 横屏</option>
+                      <option value="768p竖">768p 竖屏</option>
+                      <option value="768p横">768p 横屏</option>
+                      <option value="1080p竖">1080p 竖屏</option>
+                      <option value="1080p横">1080p 横屏</option>
+                      <option value="480p(1:1)">480p 正方形</option>
+                      <option value="768p(1:1)">768p 正方形</option>
                     </select>
                   </label>
                   <p className="muted small">
@@ -814,7 +804,7 @@ export default function Canvas() {
             </>
           ) : (
             <>
-              <p className="eyebrow">STUDIO CANVAS</p>
+              <p className="eyebrow">创作画布</p>
               <h3>你的创作全景</h3>
               <p className="muted">选择节点编辑属性，拖动端点连接流程。</p>
               <div className="canvas-help">
@@ -830,7 +820,7 @@ export default function Canvas() {
           {job && (
             <section className="canvas-job">
               <h3>流程 #{job.id}</h3>
-              {job.budget_status && (
+              {job.budget_status?.limit_yuan && (
                 <p className="muted small">
                   费用预留 ¥{job.budget_status.reserved_yuan} / 预算 ¥
                   {job.budget_status.limit_yuan || "未设置"}（实际以账单为准）
@@ -863,18 +853,11 @@ export default function Canvas() {
                 <button
                   disabled={submitting || executing || uploadingAudio}
                   onClick={async () => {
-                    if (
-                      !confirm(
-                        "继续未完成流程会跳过已完成节点，后续API可能收费，继续沿用原预算。确认已修复配置并继续？",
-                      )
-                    )
-                      return;
                     setSubmitting(true);
                     setError("");
                     try {
                       setJob(
                         await api<Job>(`jobs/${job.id}/retry/`, "POST", {
-                          confirm_paid: true,
                           idempotency_key: `resume-canvas-job:${job.id}`,
                         }),
                       );
@@ -912,25 +895,6 @@ export default function Canvas() {
         <span>
           {doc.nodes.length} / 100 节点 · {doc.edges.length} / 200 连线
         </span>
-        {doc.nodes.some((n) =>
-          ["image_api", "voiceover"].includes(n.data.kind),
-        ) && (
-          <label
-            style={{ display: "flex", gap: 8, alignItems: "center", margin: 0 }}
-          >
-            预算上限（元）
-            <input
-              aria-label="画布预算上限"
-              type="number"
-              min="0.01"
-              max="100"
-              step="0.01"
-              value={budgetLimit}
-              onChange={(e) => setBudgetLimit(e.target.value)}
-              style={{ width: 70, padding: 4 }}
-            />
-          </label>
-        )}
         <span>自动保存 · 串行执行 · 素材私有</span>
       </div>
     </div>

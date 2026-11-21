@@ -4,6 +4,21 @@ import { Link, useNavigate } from "react-router-dom";
 import { api, Page, Script, key } from "../api";
 import { useLoad } from "../hooks";
 import { Heading, ErrorBox, Empty, Pager } from "../components";
+
+const STORY_STYLES = [
+  "甜宠",
+  "悬疑",
+  "搞笑",
+  "古装权谋",
+  "都市逆袭",
+  "青春成长",
+  "奇幻冒险",
+  "科幻未来",
+  "复仇爽剧",
+  "亲情治愈",
+  "职场现实",
+  "乡村生活",
+];
 export default function Scripts() {
   const [page, setPage] = useState(1),
     [q, setQ] = useState(""),
@@ -55,7 +70,7 @@ export default function Scripts() {
           value={style}
           onChange={(e) => setStyle(e.target.value)}
         >
-          {["甜宠", "悬疑", "搞笑"].map((s) => (
+          {STORY_STYLES.map((s) => (
             <option key={s}>{s}</option>
           ))}
         </select>

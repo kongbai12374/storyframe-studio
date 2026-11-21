@@ -61,6 +61,24 @@ def test_nested_mapping_and_types():
         {"duration": "{{seconds}}", "text": "Prompt: {{prompt}}"},
         {"seconds": 8, "prompt": "hello"},
     ) == {"duration": 8, "text": "Prompt: hello"}
+    assert render(
+        {"resolution": "{{resolution}}", "aspect_ratio": "{{aspect_ratio}}"},
+        {"resolution": "720p", "aspect_ratio": "9:16"},
+    ) == {"resolution": "720p", "aspect_ratio": "9:16"}
+
+
+def test_video_duration_supports_happy_pet_models(video):
+    provider, _, _ = video
+    snapshot = prepare_snapshot(
+        provider.user,
+        {"provider_id": provider.id, "prompt": "A short scene", "seconds": 30},
+    )
+    assert snapshot["seconds"] == 30
+    with pytest.raises(ValidationError):
+        prepare_snapshot(
+            provider.user,
+            {"provider_id": provider.id, "prompt": "Too long", "seconds": 31},
+        )
 
 
 @pytest.mark.parametrize(
@@ -270,7 +288,7 @@ def test_provider_and_reference_ownership(context):
         prepare_snapshot(a, {"provider_id": provider.id, "prompt": "x"})
 
 
-def test_video_endpoint_requires_cost_confirmation(video, context):
+def test_video_endpoint_queues_without_cost_confirmation(video, context):
     provider, snapshot, job = video
     c = context[2]
     r = c.post(
@@ -285,7 +303,8 @@ def test_video_endpoint_requires_cost_confirmation(video, context):
         ),
         content_type="application/json",
     )
-    assert r.status_code == 400
+    assert r.status_code == 202
+    assert Job.objects.get(pk=r.json()["id"]).status == "queued"
 
 
 def test_retry_carries_remote_id_instead_of_resubmit(video, context):

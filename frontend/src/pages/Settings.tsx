@@ -38,16 +38,16 @@ const defaultVideoConfig = {
 const defaultImageConfig = {
   ...defaultVideoConfig,
   mode: "sync",
-  submit_path: "/images/generations",
+  submit_path: "/gemini-2.5-flash-image:generateContent",
   poll_path: "",
   request_body: {
-    model: "{{model}}",
-    prompt: "{{prompt}}",
-    size: "{{size}}",
-    n: "{{count}}",
+    contents: [{ parts: [{ text: "{{prompt}}" }] }],
+    generationConfig: { responseModalities: ["TEXT", "IMAGE"] },
   },
-  video_url_field: "data",
+  video_url_field: "candidates",
   output_format: "base64",
+  auth_header: "Authorization",
+  auth_prefix: "",
 };
 const defaultTtsConfig = {
   ...defaultVideoConfig,
@@ -64,6 +64,78 @@ const defaultTtsConfig = {
   progress_field: "",
   video_url_field: "data.results.0.url",
   success_values: ["SUCCESS", "completed"],
+};
+const defaultH3Config = {
+  ...defaultVideoConfig,
+  submit_path: "/api/v1/comfyui/comfyui_workflow/minimax_h3_lightx2v_no_pic",
+  poll_path: "/api/v1/comfyui/comfyui_workflow/result/{{task_id}}",
+  auth_prefix: "",
+  request_body: {
+    prompt: "{{prompt}}",
+    duration: "{{seconds}}",
+    resolution: "{{size}}",
+  },
+  task_id_field: "data.task_id",
+  status_field: "data.status",
+  progress_field: "",
+  video_url_field: "data.results.0.url",
+  success_values: ["completed", "SUCCESS"],
+  failure_values: ["failed", "error", "cancelled", "canceled"],
+};
+const defaultH3ReferenceConfig = {
+  ...defaultH3Config,
+  submit_path: "/api/v1/comfyui/comfyui_workflow/minimax_h3_zm_u24",
+  request_body: {
+    prompt: "{{prompt}}",
+    duration: "{{seconds}}",
+    resolution: "{{size}}",
+    ref_image_0: "{{image_url_0}}",
+    ref_image_1: "{{image_url_1}}",
+    ref_image_2: "{{image_url_2}}",
+    ref_image_3: "{{image_url_3}}",
+    ref_image_4: "{{image_url_4}}",
+    ref_image_5: "{{image_url_5}}",
+    ref_image_6: "{{image_url_6}}",
+    ref_image_7: "{{image_url_7}}",
+    ref_image_8: "{{image_url_8}}",
+    ref_audio_0: "{{audio_url_0}}",
+    ref_audio_1: "{{audio_url_1}}",
+    ref_audio_2: "{{audio_url_2}}",
+  },
+};
+const defaultHappyPetVideoConfig = {
+  ...defaultVideoConfig,
+  submit_path: "/videos",
+  poll_path: "/videos/{{task_id}}",
+  content_path: "/videos/{{task_id}}/content",
+  request_body: {
+    model: "{{model}}",
+    prompt: "{{prompt}}",
+    seconds: "{{seconds}}",
+    resolution: "{{resolution}}",
+    aspect_ratio: "{{aspect_ratio}}",
+    size: "{{size}}",
+    images: "{{images_urls}}",
+    reference_audios: "{{audio_urls}}",
+  },
+  video_url_field: "",
+  success_values: ["completed"],
+  failure_values: ["failed", "error", "cancelled", "canceled"],
+  poll_seconds: 8,
+};
+const defaultHappyPetImageConfig = {
+  ...defaultVideoConfig,
+  mode: "sync",
+  submit_path: "/images/generations",
+  poll_path: "",
+  request_body: {
+    model: "{{model}}",
+    prompt: "{{prompt}}",
+    n: "{{count}}",
+    response_format: "url",
+  },
+  video_url_field: "data",
+  output_format: "url",
 };
 export default function Settings() {
   const [ttsWorkflow, setTtsWorkflow] = useState(false);
@@ -101,7 +173,7 @@ export default function Settings() {
   return (
     <>
       <Heading
-        title="个人与 API 配置"
+        title="账号与服务配置"
         subtitle="连接自己的服务，让工作室按你的方式创作。"
       />
       <ErrorBox error={error || providers.error || user.error} />
@@ -293,8 +365,62 @@ export default function Settings() {
                   value={videoConfig}
                   onChange={(e) => setVideoConfig(e.target.value)}
                 />
+                {form.service === "video" && (
+                  <div className="actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm({
+                          ...form,
+                          name: form.name || "Happy Pet 视频",
+                          base_url: "https://api.happy-pet.fun/v1",
+                          model: form.model || "seedance-2.5-stable-d",
+                        });
+                        setVideoConfig(
+                          JSON.stringify(defaultHappyPetVideoConfig, null, 2),
+                        );
+                      }}
+                    >
+                      载入 Happy Pet 视频配置
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVideoConfig(JSON.stringify(defaultH3Config, null, 2))
+                      }
+                    >
+                      载入 AutoDL H3 文生视频配置
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVideoConfig(
+                          JSON.stringify(defaultH3ReferenceConfig, null, 2),
+                        )
+                      }
+                    >
+                      载入 AutoDL H3 多图多音频配置
+                    </button>
+                  </div>
+                )}
                 {form.service === "image" && (
                   <div className="actions">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setForm({
+                          ...form,
+                          name: form.name || "Happy Pet 图片",
+                          base_url: "https://api.happy-pet.fun/v1",
+                          model: form.model || "gpt-image-2",
+                        });
+                        setVideoConfig(
+                          JSON.stringify(defaultHappyPetImageConfig, null, 2),
+                        );
+                      }}
+                    >
+                      载入 Happy Pet 图片配置
+                    </button>
                     <button
                       type="button"
                       onClick={() =>

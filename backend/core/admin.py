@@ -11,6 +11,10 @@ from .models import (
     AIRequest,
 )
 
+admin.site.site_header = "镜序管理后台"
+admin.site.site_title = "镜序管理后台"
+admin.site.index_title = "系统管理"
+
 for model in [Profile, Asset, Script, CanvasProject, Job, JobLog, PromptTemplate]:
     admin.site.register(model)
 

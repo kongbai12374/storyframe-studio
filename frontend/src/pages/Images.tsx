@@ -16,7 +16,6 @@ export default function Images() {
     [prompt, setPrompt] = useState(""),
     [size, setSize] = useState("1024x1024"),
     [count, setCount] = useState(1),
-    [paid, setPaid] = useState(false),
     [busy, setBusy] = useState(false),
     [error, setError] = useState("");
   const choices =
@@ -32,7 +31,7 @@ export default function Images() {
       <section className="panel compose-panel">
         {!choices.length && (
           <p className="error">
-            请先在<Link to="/settings">个人与 API 配置</Link>添加“图片生成
+            请先在<Link to="/settings">账号与服务配置</Link>添加“图片生成
             API”服务。
           </p>
         )}
@@ -48,7 +47,6 @@ export default function Images() {
                 prompt,
                 size,
                 count,
-                confirm_paid: paid,
                 idempotency_key: key(),
               });
               nav(`/jobs/${job.id}`);
@@ -112,18 +110,10 @@ export default function Images() {
             每次最多4张。尺寸、张数及模型支持范围以供应商为准，接口映射需使用
             size 和 count 占位符。生成图片会优化为适合轻量视频制作的 JPEG 素材。
           </p>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              required
-              checked={paid}
-              onChange={(e) => setPaid(e.target.checked)}
-            />
-            我确认发送提示词给自己的供应商，并承担 API 调用费用。
-          </label>
+          <p className="muted small">提交后将调用所选供应商，费用以供应商账单为准。</p>
           <button
             className="primary"
-            disabled={busy || !paid || !provider || !prompt.trim()}
+            disabled={busy || !provider || !prompt.trim()}
           >
             {busy ? "提交中…" : "生成图片 →"}
           </button>

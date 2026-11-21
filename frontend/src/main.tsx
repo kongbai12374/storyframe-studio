@@ -33,7 +33,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
         <div className="brand">
           ◈ 镜序 <small>STORYFRAME</small>
         </div>
-        <p className="eyebrow">A SMALL STUDIO FOR BIG STORIES</p>
+        <p className="eyebrow">短剧创作工作台</p>
         <h1>
           把一个念头，
           <br />
@@ -45,7 +45,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
           在属于你的工作室里，慢慢成形。
         </p>
         <div className="frame-art">
-          <span>SCENE 01</span>
+          <span>场景 01</span>
           <div>
             光影之间
             <br />
@@ -74,7 +74,7 @@ function Login({ onLogin }: { onLogin: (u: User) => void }) {
           }
         }}
       >
-        <p className="eyebrow">WELCOME TO YOUR STUDIO</p>
+        <p className="eyebrow">欢迎回来</p>
         <h2>进入创作工作室</h2>
         <p className="muted">使用管理员为你创建的账号登录。</p>
         <p className="muted small">
@@ -126,7 +126,7 @@ function App() {
     <div className="shell">
       <aside>
         <Link to="/" className="brand">
-          ◈ 镜序<small>STORYFRAME STUDIO</small>
+          ◈ 镜序<small>短剧创作工作台</small>
         </Link>
         <div className="workspace">
           <span className="workspace-icon">镜</span>
@@ -134,7 +134,7 @@ function App() {
             个人创作空间<small>轻量 · 专注 · 有序</small>
           </div>
         </div>
-        <p className="nav-label">创作工作室</p>
+        <p className="nav-label">工作空间</p>
         <nav>
           {[
             ["/", "◫", "工作台"],
@@ -144,7 +144,7 @@ function App() {
             ["/images", "✧", "文生图"],
             ["/compose", "▶", "视频生成"],
             ["/jobs", "◷", "任务中心"],
-            ["/settings", "⚙", "个人与 API 配置"],
+            ["/settings", "⚙", "账号与服务配置"],
           ].map(([to, icon, title]) => (
             <NavLink key={to} to={to} end={to === "/"}>
               <span>{icon}</span>
@@ -176,13 +176,28 @@ function App() {
         <header className="topbar">
           <span>
             工作室 <i>/</i>{" "}
-            {location.pathname.startsWith("/creator") ? "创作画布" : "创作空间"}
+            {location.pathname.startsWith("/creator")
+              ? "创作画布"
+              : location.pathname.startsWith("/scripts/")
+                ? "剧本编辑"
+                : location.pathname.startsWith("/jobs/")
+                  ? "任务详情"
+                  : ({
+                      "/": "工作台",
+                      "/scripts": "剧本与分镜",
+                      "/canvases": "创作画布",
+                      "/assets": "素材库",
+                      "/images": "文生图",
+                      "/compose": "视频生成",
+                      "/jobs": "任务中心",
+                      "/settings": "账号与服务配置",
+                    }[location.pathname] || "创作空间")}
           </span>
           <div className="top-right">
-            <span className="status-dot" /> 单任务有序运行{" "}
+            <span className="status-dot" /> 任务按队列依次处理{" "}
             {user.is_admin && (
-              <a href="/admin/" target="_blank">
-                管理后台 ↗
+              <a href="/admin/" target="_blank" rel="noreferrer">
+                系统管理 ↗
               </a>
             )}
           </div>
@@ -190,7 +205,10 @@ function App() {
         <div className="content">
           <Suspense fallback={<div className="loading">正在加载…</div>}>
             <Routes>
-              <Route path="/" element={<Home />} />
+              <Route
+                path="/"
+                element={<Home displayName={user.name || user.username} />}
+              />
               <Route path="/login" element={<Navigate to="/" />} />
               <Route path="/scripts" element={<Scripts />} />
               <Route path="/scripts/:id" element={<Editor />} />

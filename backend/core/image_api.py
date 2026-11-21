@@ -79,6 +79,15 @@ def decode_image(value):
 
 
 def save_result(job, provider, frozen, value, count=1):
+    if isinstance(value, dict) and isinstance(value.get("candidates"), list):
+        value = [
+            part["inlineData"]
+            for candidate in value["candidates"]
+            for part in candidate.get("content", {}).get("parts", [])
+            if isinstance(part, dict)
+            and isinstance(part.get("inlineData"), dict)
+            and part["inlineData"].get("data")
+        ]
     values = value if isinstance(value, list) else [value]
     if not 1 <= len(values) <= min(count, 4):
         raise GatewayError("图片结果数量无效，请检查映射字段与生成张数")
@@ -87,11 +96,17 @@ def save_result(job, provider, frozen, value, count=1):
         check(job)
         resource_check()
         if isinstance(item, dict):
-            item = (
-                item.get("b64_json")
-                if frozen["config"]["output_format"] == "base64"
-                else item.get("url")
-            )
+            if frozen["config"]["output_format"] == "base64":
+                item = (
+                    item.get("b64_json")
+                    or item.get("inlineData")
+                    or item.get("inline_data")
+                    or item.get("data")
+                )
+                if isinstance(item, dict):
+                    item = item.get("data")
+            else:
+                item = item.get("url")
         blob = (
             decode_image(item)
             if frozen["config"]["output_format"] == "base64"

@@ -51,7 +51,7 @@ def image_job(context):
         base_url="https://images.example.com/v1",
         model="user-image-model",
         video_config=config,
-        encrypted_key=encrypt("synthetic-key"),
+        encrypted_key=encrypt("synthetic-API-key-that-is-long-enough"),
     )
     snapshot = prepare_image_snapshot(
         user, {"provider_id": provider.id, "prompt": "forest", "count": 2}
@@ -93,6 +93,30 @@ def test_image_sync_generates_private_assets(image_job, context):
         assert context[2].get(f"/api/assets/{asset.id}/file/").status_code == 200
     job.refresh_from_db()
     assert job.remote_state["status"] == "completed"
+
+
+def test_gemini_candidates_inline_data_are_saved(image_job):
+    provider, snapshot, job = image_job
+    snapshot["count"] = 1
+    snapshot["video_provider"]["config"].update(
+        submit_path="/gemini:generateContent",
+        request_body={"contents": [{"parts": [{"text": "{{prompt}}"}]}]},
+    )
+    response = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": "A generated image"},
+                        {"inlineData": {"mimeType": "image/png", "data": png("red")}},
+                    ]
+                }
+            }
+        ]
+    }
+    with patch("core.video_api.transport", return_value=response):
+        result = generate(job, snapshot)
+    assert len(result["asset_ids"]) == 1
 
 
 def test_image_async_resume_does_not_repost(image_job):
@@ -221,19 +245,18 @@ def test_video_submits_all_images_in_order(context):
     )
 
 
-def test_image_submit_requires_fee_confirmation_and_owned_provider(image_job, context):
+def test_image_submit_does_not_require_fee_confirmation_and_checks_provider(image_job, context):
     provider, _, job = image_job
     client = context[2]
     data = {
         "kind": "image_api",
         "provider_id": provider.id,
         "prompt": "forest",
-        "idempotency_key": "new",
+            "idempotency_key": "new-image-job",
     }
-    assert (
-        client.post("/api/jobs/", data, content_type="application/json").status_code
-        == 400
-    )
+    response = client.post("/api/jobs/", data, content_type="application/json")
+    assert response.status_code == 202, response.json()
+    Job.objects.filter(pk=response.json()["id"]).update(status="failed")
     provider.user = context[1]
     provider.save()
     data["confirm_paid"] = True
@@ -255,7 +278,7 @@ def test_image_new_generation_uses_current_config(image_job, context):
         {
             "confirm_paid": True,
             "new_generation": True,
-            "idempotency_key": "retry-image",
+            "idempotency_key": "retry-image-job",
         },
         content_type="application/json",
     )

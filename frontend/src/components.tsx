@@ -11,7 +11,7 @@ export function Heading({
   return (
     <div className="page-heading">
       <div>
-        <p className="eyebrow">YOUR CREATIVE WORKSPACE</p>
+        <p className="eyebrow">工作空间</p>
         <h1>{title}</h1>
         <p className="muted">{subtitle}</p>
       </div>

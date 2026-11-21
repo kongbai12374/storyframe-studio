@@ -7,12 +7,12 @@
     "Microsoft YaHei",
     sans-serif;
   color: #273b3b;
-  background: #f7f8f6;
+  background: #f4f7f7;
   font-synthesis: none;
-  --green: #274e45;
-  --muted: #86938d;
-  --line: #e3e8e3;
-  --accent: #d38b60;
+  --green: #285653;
+  --muted: #71817f;
+  --line: #dfe7e6;
+  --accent: #bd7652;
 }
 * {
   box-sizing: border-box;
@@ -96,7 +96,7 @@ p {
 }
 h1 {
   font-size: 31px;
-  letter-spacing: -1px;
+  letter-spacing: 0;
   line-height: 1.3;
   margin-bottom: 13px;
 }
@@ -109,9 +109,9 @@ h3 {
   font-weight: 600;
 }
 .eyebrow {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 2px;
+  letter-spacing: 0;
   color: #9da791;
   margin-bottom: 16px;
 }
@@ -455,6 +455,22 @@ main {
 }
 .info-strip a {
   margin-left: auto;
+}
+.storage-track {
+  width: 120px;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 4px;
+  background: #e6eceb;
+}
+.storage-track span {
+  display: block;
+  height: 100%;
+  background: #4f817b;
+  transition: width 0.2s ease;
+}
+.welcome .subtle {
+  margin-left: 8px;
 }
 .panel {
   background: #fff;
@@ -1767,5 +1783,203 @@ pre {
   }
   .job-open .job-description {
     min-width: 120px;
+  }
+}
+
+.welcome {
+  align-items: center;
+  min-height: 0;
+  padding: 4px 0 24px;
+  margin-bottom: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+}
+.welcome .eyebrow {
+  color: var(--green);
+  margin-bottom: 10px;
+}
+.welcome h1 {
+  max-width: 720px;
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 650;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+.welcome p:not(.eyebrow) {
+  color: var(--muted);
+  font-size: 13px;
+  margin-bottom: 18px;
+}
+.welcome-art {
+  width: auto;
+  justify-content: flex-end;
+}
+.dashboard-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: #536562;
+  font-size: 12px;
+}
+.dashboard-summary strong {
+  font-weight: 600;
+}
+.dashboard-summary a {
+  margin-left: 8px;
+  white-space: nowrap;
+}
+.stat-grid {
+  gap: 12px;
+  margin: 8px 0 30px;
+}
+.stat-card {
+  display: block;
+  min-width: 0;
+  padding: 18px 20px;
+  border-radius: 7px;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.stat-card:hover {
+  background: #fbfdfd;
+  border-color: #a9c3bf;
+}
+.stat-card > span {
+  color: #627572;
+  font-size: 12px;
+}
+.stat-card strong {
+  margin: 12px 0 5px;
+  font-family: inherit;
+  font-size: 30px;
+  font-weight: 650;
+  color: #253d3a;
+}
+.stat-card small {
+  color: #82918f;
+  font-size: 11px;
+}
+.section-title {
+  margin: 0 0 14px;
+}
+.steps-grid {
+  gap: 12px;
+}
+.step-card {
+  min-height: 136px;
+  padding: 18px;
+  border-radius: 7px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.step-card:hover {
+  transform: none;
+  background: #fbfdfd;
+  border-color: #a9c3bf;
+}
+.step-card > span {
+  margin-bottom: 14px;
+  color: #b36f4d;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 650;
+}
+.step-card h3 {
+  margin-bottom: 7px;
+  color: #2e4946;
+  font-size: 14px;
+}
+.step-card p {
+  color: #71817f;
+  font-size: 12px;
+}
+.info-strip {
+  padding: 14px 0;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  color: #71817f;
+}
+.info-strip strong {
+  color: #405a57;
+}
+.info-strip a {
+  margin-left: auto;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid #35716b;
+  outline-offset: 2px;
+}
+@media (max-width: 800px) {
+  .welcome {
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 20px;
+  }
+  .welcome-art {
+    display: flex;
+    align-self: center;
+  }
+  .dashboard-summary {
+    flex-wrap: wrap;
+    max-width: 180px;
+    font-size: 11px;
+  }
+  .dashboard-summary a {
+    margin-left: 24px;
+  }
+  .welcome h1 {
+    font-size: 24px;
+  }
+}
+@media (max-width: 600px) {
+  .welcome {
+    display: block;
+  }
+  .welcome-art {
+    justify-content: flex-start;
+    margin-top: 12px;
+  }
+  .dashboard-summary {
+    max-width: none;
+    width: 100%;
+  }
+  .stat-grid {
+    gap: 9px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    padding: 14px;
+  }
+  .stat-card strong {
+    font-size: 25px;
+  }
+  .steps-grid {
+    grid-template-columns: 1fr;
+  }
+  .step-card {
+    min-height: 0;
+  }
+  .info-strip {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+  }
+  .info-strip a {
+    margin-left: 0;
+  }
+  .storage-track {
+    flex: 0 0 100%;
+    max-width: 220px;
   }
 }

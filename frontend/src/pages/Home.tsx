@@ -7,81 +7,113 @@ type Dashboard = {
   assets: number;
   canvases: number;
   jobs: Record<string, number>;
-  profile: { used_bytes: number; quota_bytes: number };
+  profile: {
+    used_bytes: number;
+    quota_bytes: number;
+    api_calls_remaining: number;
+  };
 };
-export default function Home() {
+function formatBytes(bytes: number) {
+  return bytes < 1024 * 1024
+    ? `${Math.ceil(bytes / 1024)} KB`
+    : `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+export default function Home({ displayName }: { displayName: string }) {
   const { data, error } = useLoad(() => api<Dashboard>("dashboard/"));
+  const storagePercent = data?.profile.quota_bytes
+    ? Math.min(
+        100,
+        Math.round(
+          (data.profile.used_bytes / data.profile.quota_bytes) * 100,
+        ),
+      )
+    : 0;
+  const stats = [
+    { label: "剧本与分镜", count: data?.scripts, path: "/scripts" },
+    { label: "创作画布", count: data?.canvases, path: "/canvases" },
+    { label: "素材文件", count: data?.assets, path: "/assets" },
+    {
+      label: "已完成任务",
+      count: data?.jobs.succeeded || 0,
+      path: "/jobs",
+    },
+  ];
   return (
     <>
       <div className="welcome">
         <div>
-          <p className="eyebrow">CREATE SOMETHING WORTH WATCHING</p>
+          <p className="eyebrow">创作工作台</p>
           <h1>
-            每个好故事，
+            欢迎回来，{displayName}
             <br />
-            都从一个想法开始。
+            今天继续你的创作。
           </h1>
-          <p>写下剧本，连接画面，让想象在镜头里生长。</p>
+          <p>查看项目进度，或从常用操作继续创作。</p>
           <Link className="primary button" to="/canvases">
-            打开创作画布 ↗
+            打开创作画布
           </Link>
-          <Link className="button subtle" to="/scripts/new">
-            新建剧本
+          <Link className="button subtle" to="/scripts">
+            管理剧本
           </Link>
         </div>
         <div className="welcome-art">
-          <span className="art-number">01</span>
-          <div className="art-window">
-            <span>STORY IN MOTION</span>
+          <div className="dashboard-summary">
+            <span className="status-dot" />
             <strong>
-              一镜，
-              <br />
-              一个新世界。
+              {(data?.jobs.queued || 0) +
+                (data?.jobs.running || 0) +
+                (data?.jobs.cancel_requested || 0)} 项任务处理中
             </strong>
-            <i>◁ ▷ ━━━━━━━ ●</i>
+            <Link to="/jobs">查看任务 →</Link>
           </div>
         </div>
       </div>
       <ErrorBox error={error} />
       <div className="stat-grid">
-        {[
-          ["剧本草稿", data?.scripts, "▤"],
-          ["创作画布", data?.canvases, "⌘"],
-          ["素材收藏", data?.assets, "▧"],
-          ["已完成视频", data?.jobs.succeeded || 0, "▶"],
-        ].map(([label, num, icon]) => (
-          <article className="stat-card" key={label}>
-            <span>
-              {label}
-              <i>{icon}</i>
-            </span>
-            <strong>{num ?? "—"}</strong>
-            <small>属于你的创作积累</small>
-          </article>
+        {stats.map(({ label, count, path }) => (
+          <Link className="stat-card" key={label} to={path}>
+            <span>{label}</span>
+            <strong>{count ?? "—"}</strong>
+            <small>查看与管理 →</small>
+          </Link>
         ))}
       </div>
       <div className="section-title">
-        <h2>从想法到成片</h2>
-        <span className="muted">一步一步，保持专注</span>
+        <h2>常用操作</h2>
+        <span className="muted">按创作进度选择下一步</span>
       </div>
       <div className="steps-grid">
         {[
-          ["01", "构思故事", "填写梗概、编写台词与分镜。", "/scripts"],
-          ["02", "准备素材", "上传图片和配音，为故事找到画面。", "/assets"],
-          ["03", "连接灵感", "在画布中整理节点与创作流程。", "/canvases"],
-          ["04", "生成作品", "按顺序合成字幕、画面与声音。", "/compose"],
+          ["01", "编写剧本", "补充故事梗概、台词和分镜。", "/scripts"],
+          ["02", "整理素材", "上传并管理图片、配音素材。", "/assets"],
+          ["03", "编排流程", "在画布中连接节点并运行。", "/canvases"],
+          ["04", "查看任务", "跟踪生成进度并查看成片。", "/jobs"],
         ].map(([n, t, d, to]) => (
           <Link className="step-card" to={to} key={n}>
             <span>{n}</span>
-            <h3>{t} ↗</h3>
+            <h3>{t}</h3>
             <p>{d}</p>
           </Link>
         ))}
       </div>
       <div className="info-strip">
-        <strong>轻量工作室</strong>
-        <span>720p · 最长60秒 · 单任务合成</span>
-        <Link to="/settings">配置自己的 AI 服务 →</Link>
+        <strong>资源用量</strong>
+        <span>
+          素材存储 {data ? formatBytes(data.profile.used_bytes) : "加载中"}
+          {data && ` / ${formatBytes(data.profile.quota_bytes)}`}
+        </span>
+        <div
+          className="storage-track"
+          role="progressbar"
+          aria-label="素材存储用量"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={storagePercent}
+        >
+          <span style={{ width: `${storagePercent}%` }} />
+        </div>
+        <span>可用 AI 调用 {data?.profile.api_calls_remaining ?? "—"} 次</span>
+        <Link to="/settings">账号与服务配置 →</Link>
       </div>
     </>
   );

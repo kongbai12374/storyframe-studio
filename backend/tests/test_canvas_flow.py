@@ -1,6 +1,5 @@
 import copy, io, time, wave
 from unittest.mock import patch
-from decimal import Decimal
 import pytest
 from django.test import Client
 from django.core import signing
@@ -11,7 +10,7 @@ from core.models import Job, Provider, Profile, CanvasProject, Asset
 from core.gateway import GatewayError, encrypt
 from core.storage import save_upload, safe_path, used_bytes
 from core.video_api import DEFAULT_CONFIG, persist, node_state
-from core.canvas_flow import validate_budget, run_flow, voiceover
+from core.canvas_flow import run_flow, voiceover
 from core.asset_links import asset_link
 from core.validation import graph_validate
 
@@ -56,38 +55,10 @@ def test_scoped_task_ids_do_not_cross_nodes(running):
     assert running.remote_state["node_states"]["video"]["task_id"] == "video-task"
 
 
-def test_conservative_budget_refuses_overspend_before_submission():
-    snapshot = {
-        "document": {
-            "nodes": [
-                node("image", "image_api"),
-                node("video", "video_api", seconds=10),
-            ]
-        },
-        "order": ["image", "video"],
-        "video_providers": {
-            "image": {
-                "model": "doubao-seedream-5-0-flash",
-                "base_url": "https://www.autodl.art/api/v1",
-            },
-            "video": {
-                "model": "minimax_h3_lightx2v_v5_15s",
-                "base_url": "https://www.autodl.art",
-            },
-        },
-    }
-    with pytest.raises(ValidationError):
-        validate_budget(snapshot, "0.50")
-    assert Decimal(validate_budget(snapshot, "3")["estimated_yuan"]) == Decimal("0.85")
-    snapshot["video_providers"]["video"]["model"] = "unpriced"
-    with pytest.raises(ValidationError):
-        validate_budget(snapshot, "3")
-
-
 def test_private_links_need_signature_and_expire(context, picture):
     asset = save_upload(context[0], picture)
     url = asset_link(context[0], asset.id)
-    path = url.split("https://studio.example.com")[-1]
+    path = url.split("https://8.133.224.94")[-1]
     anon = Client()
     assert anon.get(path).status_code == 200
     assert anon.get(path[:-2] + "x/").status_code == 404
@@ -346,7 +317,8 @@ def test_explicit_video_auth_rejection_is_not_unknown(running):
     assert node_state(running)["submission_state"] == "rejected"
 
 
-def test_budgeted_canvas_same_revision_is_idempotent(context):
+@pytest.mark.parametrize("legacy_fields", [{}, {"budget_limit_yuan": "0.01", "confirm_paid": False}])
+def test_canvas_submission_deduplicates_same_key_without_budget(context, legacy_fields):
     user, _, client = context
     provider = Provider.objects.create(
         user=user,
@@ -372,29 +344,20 @@ def test_budgeted_canvas_same_revision_is_idempotent(context):
             "edges": [],
         },
     )
-    one = client.post(
-        f"/api/canvases/{project.id}/run/",
-        {
-            "revision": 1,
-            "idempotency_key": "first",
-            "confirm_paid": True,
-            "budget_limit_yuan": 3,
-        },
-        content_type="application/json",
-    )
-    two = client.post(
-        f"/api/canvases/{project.id}/run/",
-        {
-            "revision": 1,
-            "idempotency_key": "second",
-            "confirm_paid": True,
-            "budget_limit_yuan": 3,
-        },
-        content_type="application/json",
-    )
+    url = f"/api/canvases/{project.id}/run/"
+    payload = {"revision": 1, "idempotency_key": "canvas-submit-1", **legacy_fields}
+    one = client.post(url, payload, content_type="application/json")
+    two = client.post(url, payload, content_type="application/json")
     assert one.status_code == two.status_code == 202
     assert one.json()["id"] == two.json()["id"]
-    assert Job.objects.count() == 1
+    job = Job.objects.get()
+    assert job.pk == one.json()["id"]
+    assert "budget" not in job.snapshot
+
+    payload["idempotency_key"] = "canvas-submit-2"
+    fresh = client.post(url, payload, content_type="application/json")
+    assert fresh.status_code == 202
+    assert fresh.json()["id"] != job.pk
 
 
 def test_saved_audio_canvas_reopens_and_saves(context):

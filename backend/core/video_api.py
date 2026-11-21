@@ -48,6 +48,8 @@ PLACEHOLDERS = {
     "prompt",
     "seconds",
     "size",
+    "resolution",
+    "aspect_ratio",
     "image_base64",
     "image_data_url",
     "images_base64",
@@ -55,8 +57,10 @@ PLACEHOLDERS = {
     "count",
     "text",
     "audio_url",
+    "audio_urls",
     "images_urls",
     *{f"image_url_{i}" for i in range(9)},
+    *{f"audio_url_{i}" for i in range(3)},
 }
 SECRET_FIELDS = {
     "api_key",
@@ -226,11 +230,36 @@ def prepare_snapshot(user, data):
 
     prompt = require_text(data.get("prompt"), "prompt", 4000)
     seconds = data.get("seconds", 5)
-    if type(seconds) is not int or not 1 <= seconds <= 60:
-        raise ValidationError("视频时长须为1–60整数秒，供应商需支持该时长")
-    if data.get("size", "1280x720") not in ["1280x720", "720x1280"]:
-        raise ValidationError("仅支持720p横屏或竖屏")
+    if type(seconds) is not int or not 1 <= seconds <= 30:
+        raise ValidationError("视频时长须为1–30整数秒，具体上限以所选模型为准")
+    size = data.get("size", "1280x720")
+    allowed_sizes = [
+        "1280x720",
+        "720x1280",
+        "480p横",
+        "480p竖",
+        "768p横",
+        "768p竖",
+        "1080p横",
+        "1080p竖",
+        "480p(1:1)",
+        "768p(1:1)",
+    ]
+    if size not in allowed_sizes:
+        raise ValidationError("请选择有效的视频分辨率")
     images = validate_images(user, data)
+    audio_ids = data.get("audio_ids", [])
+    if (
+        not isinstance(audio_ids, list)
+        or len(audio_ids) > 3
+        or any(type(x) is not int or x < 1 for x in audio_ids)
+        or len(set(audio_ids)) != len(audio_ids)
+        or Asset.objects.filter(
+            pk__in=audio_ids, user=user, kind="audio"
+        ).count()
+        != len(audio_ids)
+    ):
+        raise ValidationError("参考音频须为不重复且属于当前用户的音频素材，最多3段")
     image = images[0] if images else None
     if image and not Asset.objects.filter(pk=image, user=user, kind="image").exists():
         raise ValidationError("参考图片不存在或无权限")
@@ -238,9 +267,10 @@ def prepare_snapshot(user, data):
         "video_provider": provider_snapshot(user, data.get("provider_id")),
         "prompt": prompt,
         "seconds": seconds,
-        "size": data.get("size", "1280x720"),
+        "size": size,
         "image_id": image or None,
         "image_ids": images,
+        "audio_ids": audio_ids,
     }
 
 
@@ -511,7 +541,30 @@ def generate(job, snapshot):
                 "model": frozen["model"],
                 "prompt": snapshot["prompt"],
                 "seconds": snapshot.get("seconds", 5),
-                "size": snapshot.get("size", "1280x720"),
+                "size": {
+                    "480p横": "854x480",
+                    "480p竖": "480x854",
+                    "768p横": "1280x720",
+                    "768p竖": "720x1280",
+                    "1080p横": "1920x1080",
+                    "1080p竖": "1080x1920",
+                    "480p(1:1)": "480x480",
+                    "768p(1:1)": "768x768",
+                }.get(snapshot.get("size"), snapshot.get("size", "1280x720")),
+                "resolution": (
+                    "480p"
+                    if snapshot.get("size") in ["480p横", "480p竖"]
+                    else "1080p"
+                    if snapshot.get("size") in ["1920x1080", "1080p横", "1080p竖"]
+                    else "720p"
+                ),
+                "aspect_ratio": (
+                    "9:16"
+                    if snapshot.get("size") in ["720x1280", "480p竖", "768p竖", "1080p竖"]
+                    else "1:1"
+                    if snapshot.get("size") in ["480p(1:1)", "768p(1:1)"]
+                    else "16:9"
+                ),
                 "image_base64": "",
                 "image_data_url": "",
                 "images_base64": [],
@@ -519,10 +572,14 @@ def generate(job, snapshot):
                 "count": snapshot.get("count", 1),
                 "text": snapshot.get("prompt", ""),
                 "audio_url": "",
+                "audio_urls": [],
                 "images_urls": [],
                 **{f"image_url_{i}": "" for i in range(9)},
+                **{f"audio_url_{i}": "" for i in range(3)},
             }
             images = validate_images(job.user, snapshot)
+            if "{{image_url_0}}" in json.dumps(config["request_body"]) and not images:
+                raise GatewayError("此视频工作流至少需要一张参考图片")
             for image_id in images:
                 image = Asset.objects.get(pk=image_id, user=job.user, kind="image")
                 variables["images_base64"].append(
@@ -543,14 +600,26 @@ def generate(job, snapshot):
                 variables.update(
                     {f"image_url_{i}": value for i, value in enumerate(urls)}
                 )
-            if "{{audio_url}}" in template:
+            if any(
+                token in template
+                for token in ["{{audio_url}}", "{{audio_url_", "{{audio_urls}}"]
+            ):
                 from .asset_links import asset_link
 
-                if not Asset.objects.filter(
-                    pk=snapshot.get("audio_id"), user=job.user, kind="audio"
-                ).exists():
-                    raise GatewayError("TTS需要选择参考音频素材")
-                variables["audio_url"] = asset_link(job.user, snapshot["audio_id"])
+                audio_ids = snapshot.get("audio_ids", [])
+                if snapshot.get("audio_id") and not audio_ids:
+                    audio_ids = [snapshot["audio_id"]]
+                if len(audio_ids) > 3 or Asset.objects.filter(
+                    pk__in=audio_ids, user=job.user, kind="audio"
+                ).count() != len(audio_ids):
+                    raise GatewayError("参考音频素材无效或已删除")
+                audio_urls = [asset_link(job.user, ident) for ident in audio_ids]
+                variables["audio_urls"] = audio_urls
+                variables.update(
+                    {f"audio_url_{i}": value for i, value in enumerate(audio_urls)}
+                )
+                if audio_urls:
+                    variables["audio_url"] = audio_urls[0]
             state = {
                 "provider_id": provider.id,
                 "submission_state": "sending",
@@ -560,13 +629,29 @@ def generate(job, snapshot):
             update_job(
                 job, stage="正在向用户配置的API提交" + media_name + "任务", progress=5
             )
+            request_body = render(config["request_body"], variables)
+            if config["submit_path"].startswith(
+                "/api/v1/comfyui/comfyui_workflow/"
+            ):
+                def omit_empty(value):
+                    if isinstance(value, dict):
+                        return {
+                            key: omit_empty(item)
+                            for key, item in value.items()
+                            if item != ""
+                        }
+                    if isinstance(value, list):
+                        return [omit_empty(item) for item in value]
+                    return value
+
+                request_body = omit_empty(request_body)
             response = transport(
                 job,
                 provider,
                 frozen,
                 config["submit_path"],
                 "POST",
-                render(config["request_body"], variables),
+                request_body,
                 charge=True,
             )
             task_id = extract(response, config["task_id_field"])
@@ -630,7 +715,11 @@ def generate(job, snapshot):
                     from .image_api import save_result
 
                     result = save_result(
-                        job, provider, frozen, url, snapshot.get("count", 1)
+                        job,
+                        provider,
+                        frozen,
+                        response if isinstance(response.get("candidates"), list) else url,
+                        snapshot.get("count", 1),
                     )
                     state["status"] = "completed"
                     persist(job, state)

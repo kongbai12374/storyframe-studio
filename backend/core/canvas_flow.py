@@ -3,68 +3,16 @@
 import copy
 import time
 import uuid
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
-from rest_framework.exceptions import ValidationError
 from .models import Asset, Script, Profile
 from .queue import log, update_job
 from .video import check, run_process
 from .storage import safe_path, save_upload, probe, used_bytes
 from .video_api import generate, persist
 from .gateway import GatewayError, tts
-
-
-def validate_budget(snapshot, raw_limit=None):
-    try:
-        limit = Decimal(str(raw_limit)) if raw_limit is not None else None
-        if limit is not None and (
-            not limit.is_finite() or not Decimal("0.01") <= limit <= 100
-        ):
-            raise ValueError()
-    except (ValueError, InvalidOperation):
-        raise ValidationError("预算须为0.01–100元")
-    plan = {}
-    for node in snapshot["document"]["nodes"]:
-        ident = node["id"]
-        data = node["data"]
-        kind = data["kind"]
-        if ident not in snapshot["order"]:
-            continue
-        provider = snapshot.get("video_providers", {}).get(ident, {})
-        model = provider.get("model", "")
-        known = True
-        if kind == "llm":
-            cost = Decimal("0.10")
-        elif kind == "image_api":
-            cost = Decimal("0.25") if model == "Z-Image-Turbo" else Decimal("0.15")
-            known = model in [
-                "doubao-seedream-5-0-flash",
-                "Z-Image-Turbo",
-            ] and provider.get("base_url", "").startswith("https://www.autodl.art/")
-        elif kind == "tts":
-            cost = Decimal("0.10")
-            known = model == "indextts2-v1" and "autodl.art" in provider.get(
-                "base_url", ""
-            )
-        elif kind == "video_api":
-            cost = Decimal("0.07") * data.get("seconds", 5)
-            known = model == "minimax_h3_lightx2v_v5_15s" and provider.get(
-                "base_url"
-            ) in ["https://www.autodl.art", "https://autodl.art"]
-        else:
-            continue
-        if limit is not None and not known:
-            raise ValidationError("此服务尚未核价，不能保证预算；请先核实价格")
-        plan[ident] = str(cost)
-    if limit is not None and sum(map(Decimal, plan.values())) > limit:
-        raise ValidationError("保守费用预留超过预算，未提交任何付费请求")
-    return {
-        "limit_yuan": str(limit) if limit is not None else None,
-        "plan": plan,
-        "estimated_yuan": str(sum(map(Decimal, plan.values()))),
-    }
 
 
 def store(job):
@@ -83,10 +31,6 @@ def reserve(job, ident):
     if ident in reservations:
         return
     amount = job.snapshot.get("budget", {}).get("plan", {}).get(ident, "0")
-    total = sum(map(Decimal, reservations.values())) + Decimal(amount)
-    limit = job.snapshot.get("budget", {}).get("limit_yuan")
-    if limit is not None and total > Decimal(limit):
-        raise GatewayError("已到预算上限，停止后续付费请求")
     reservations[ident] = amount
     store(job)
 

@@ -484,15 +484,12 @@ def canvas_snapshot(obj, user, selected=None):
                 "title": script.title,
                 "scenes": scenes_validate(script.scenes, user),
             }
-        if (
-            kind in ["video_api", "image_api"]
-            or kind == "tts"
-            and data.get("provider_id")
-        ):
+        if kind in ["video_api", "image_api", "tts"]:
+            service = "image" if kind == "image_api" else "tts" if kind == "tts" else "video"
             video_providers[ident] = provider_snapshot(
                 user,
                 data.get("provider_id"),
-                "image" if kind == "image_api" else "tts" if kind == "tts" else "video",
+                service,
             )
         if kind == "tts" and entity:
             entities[ident] = {"asset_id": owned(Asset, entity, user).id}
@@ -521,30 +518,7 @@ def canvas_run(request, ident):
     if request.data.get("revision") != obj.revision:
         return Response({"detail": "请先保存或重新载入画布"}, status=409)
     snapshot = canvas_snapshot(obj, request.user, request.data.get("selected"))
-    if any(
-        n["data"]["kind"] in ["image_api", "voiceover"]
-        for n in snapshot["document"]["nodes"]
-    ):
-        from .canvas_flow import validate_budget
-
-        if request.data.get("budget_limit_yuan") is not None and any(
-            n["data"]["kind"] == "llm" for n in snapshot["document"]["nodes"]
-        ):
-            from .gateway import provider_for
-
-            p = provider_for(request.user, "llm")
-            if p.base_url != "https://api.deepseek.com" or p.model != "deepseek-flash":
-                raise ValidationError({"detail": "预算内AI剧本执行仅支持已核价的DeepSeek Flash"})
-        snapshot["budget"] = validate_budget(
-            snapshot, request.data.get("budget_limit_yuan")
-        )
-    if snapshot.get("video_providers") and request.data.get("confirm_paid") is not True:
-        raise ValidationError({"detail": "执行视频API可能产生费用，请明确确认"})
     execution_key = request.data.get("idempotency_key")
-    if snapshot.get("budget", {}).get("limit_yuan") is not None:
-        execution_key = (
-            f"canvas-budget:{obj.id}:{obj.revision}:{snapshot['budget']['limit_yuan']}"
-        )
     job = enqueue(request.user, "canvas", snapshot, execution_key)
     return Response(JobSerializer(job).data, status=202)
 
@@ -564,8 +538,6 @@ def jobs(request):
             "style": request.data.get("style", "甜宠"),
         }
     elif kind in ["video_api", "image_api"]:
-        if request.data.get("confirm_paid") is not True:
-            raise ValidationError({"detail": "提交生成API可能产生费用，请明确确认"})
         snapshot = (
             prepare_image_snapshot if kind == "image_api" else prepare_snapshot
         )(request.user, request.data)
@@ -653,10 +625,6 @@ def job_retry(request, ident):
     obj = owned(Job, ident, request.user)
     if obj.status not in ["failed", "interrupted", "cancelled"]:
         raise ValidationError({"detail": "只有失败、中断或取消任务可重试"})
-    if (obj.kind != "compose" or obj.snapshot.get("use_tts")) and not request.data.get(
-        "confirm_paid"
-    ):
-        raise ValidationError({"detail": "该任务可能产生付费调用，请核查后显式确认重试"})
     snapshot = copy.deepcopy(obj.snapshot)
     if (
         obj.kind in ["video_api", "image_api"]
